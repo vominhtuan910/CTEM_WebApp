@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-//hehe bulolUN
+
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
