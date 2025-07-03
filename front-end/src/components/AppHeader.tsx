@@ -78,11 +78,11 @@ const AppHeader: React.FC = () => {
           Issues
         </a>
         <a
-          href="#"
+          href="./assets"
           className="flex items-center gap-1 text-gray-700 hover:text-blue-600 hover:underline"
         >
           <AssessmentIcon fontSize="small" />
-          Report
+          Assets
         </a>
         <a
           href="#"
