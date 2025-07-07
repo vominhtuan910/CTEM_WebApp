@@ -4,9 +4,6 @@ import AutoScan from "../components/Assets/AutoScan.tsx";
 import ManualEntryForm from "../components/Assets/ManualEntryForm.tsx";
 import AssetTable from "../components/Assets/AssetTable.tsx";
 
-/* File: src/pages/Assets.tsx */
-
-
 const Assets: React.FC = () => {
     const [assets, setAssets] = useState<any[]>([]);
     const [scanResults, setScanResults] = useState<any[]>([]);
@@ -28,6 +25,7 @@ const Assets: React.FC = () => {
     };
 
     return (
+        
         <Box sx={{ p: 3 }}>
             <Typography variant="h4" gutterBottom>
                 Assets Management
