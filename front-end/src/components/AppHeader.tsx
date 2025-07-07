@@ -1,14 +1,16 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { useState } from 'react';
+import { JSX } from 'react/jsx-runtime';
+import Dashboard from '../pages/Dashboard.tsx';
+import Assets from '../pages/Assets.tsx';
+
+// Icons
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import BugReportIcon from "@mui/icons-material/BugReport";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import SecurityIcon from "@mui/icons-material/Security";
 import SearchIcon from "@mui/icons-material/Search";
 
-import Dashboard from '../pages/Dashboard.tsx';
-import Assets from '../pages/Assets.tsx';
-import { JSX } from 'react/jsx-runtime';
 
 // TopNavigation Component
 const TopNavigation: React.FC = () => {
@@ -120,13 +122,15 @@ const SidebarNav: React.FC = () => {
 };
 
 // Content Component
+import VulnerabilityTable from './Issues/Vulnerability/VulnerabilityTable.tsx';
 const Content: React.FC = () => {
   return (
     <Routes>
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/assets" element={<Assets />} />
       {/*<Route path="/issues" element={<Issues />} */}
-      {/*<Route path="/chart" element={<Chart />} */}
+      {/*<Route path="/chart" element={<Chart />} */}  
+      <Route path="/issues" element={<VulnerabilityTable />} />
     </Routes>
   );
 };
