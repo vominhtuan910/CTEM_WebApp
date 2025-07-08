@@ -1,7 +1,8 @@
-import AppHeader from "./AppHeader";
 import { Outlet } from "react-router-dom";
-import AppFooter from "./AppFooter";
 import { Box, Container } from "@mui/material";
+
+import AppHeader from "./AppHeader";
+import AppFooter from "./AppFooter";
 
 const AppLayout: React.FC = () => {
   return (
@@ -14,4 +15,5 @@ const AppLayout: React.FC = () => {
     </Box>
   );
 };
+
 export default AppLayout;
