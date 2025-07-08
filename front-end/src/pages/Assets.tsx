@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Box, Typography, Paper } from "@mui/material";
 import AutoScan from "../components/Assets/AutoScan.tsx";
 import ManualEntryForm from "../components/Assets/ManualEntryForm.tsx";
