@@ -14,7 +14,7 @@ const TopNavigation: React.FC = () => {
   };
 
   return (
-    <nav className="mb-8 p-6 bg-white/70 backdrop-blur-lg border-b border-white/20 shadow-lg">
+    <nav className="p-6 bg-white/70 backdrop-blur-lg shadow-lg">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo Section */}
         <div className="flex items-center gap-4">

@@ -88,7 +88,7 @@ const Dashboard: React.FC = () => {
     <ErrorBoundary onError={(error) => console.error('Dashboard Error:', error)}>
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         {/* Enhanced Header */}
-        <header className="mb-8 lg:mb-12">
+        <header className="mb-6 lg:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg">
