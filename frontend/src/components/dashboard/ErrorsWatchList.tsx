@@ -1,78 +1,131 @@
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import PriorityHighIcon from "@mui/icons-material/PriorityHigh";
 import { ErrorsWatchListProps } from '../../types/dashboard.types';
-import { getTrendColor } from '../../utils/dashboardHelpers';
 
 const ErrorsWatchList: React.FC<ErrorsWatchListProps> = ({ errors }) => {
   if (!errors || errors.length === 0) {
     return (
-      <div className="rounded-lg bg-white p-6 shadow">
-        <div className="mb-2 text-lg font-semibold text-gray-700 flex items-center gap-2">
-          <WarningAmberIcon className="text-yellow-500" />
-          Errors to Watch
+      <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-200 p-8 shadow-lg">
+        <div className="text-center">
+          <div className="p-4 bg-emerald-100 rounded-full w-fit mx-auto mb-4">
+            <CheckCircleIcon className="text-emerald-600 text-3xl" />
+          </div>
+          <h3 className="text-xl font-bold text-emerald-800 mb-2">All Clear!</h3>
+          <p className="text-emerald-600 font-medium">No trending security errors detected</p>
         </div>
-        <p className="text-gray-500 italic">No trending errors detected</p>
       </div>
     );
   }
 
+  const criticalErrors = errors.filter(error => error.change <= -5);
+  const moderateErrors = errors.filter(error => error.change > -5);
+
   return (
     <div 
-      className="rounded-lg bg-white p-6 shadow hover:shadow-lg transition-shadow duration-200"
+      className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 p-8 shadow-lg hover:shadow-xl transition-all duration-300"
       role="region"
       aria-labelledby="errors-watch-heading"
     >
-      <div className="mb-4 text-lg font-semibold text-gray-700 flex items-center gap-2">
-        <WarningAmberIcon className="text-yellow-500" aria-hidden="true" />
-        <h3 id="errors-watch-heading">
-          Errors to Watch ({errors.length})
-        </h3>
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-amber-100 rounded-xl">
+              <WarningAmberIcon className="text-amber-600 text-2xl" aria-hidden="true" />
+            </div>
+            <div>
+              <h3 id="errors-watch-heading" className="text-2xl font-bold text-slate-800">
+                Security Alerts
+              </h3>
+              <p className="text-slate-600 font-medium">
+                {errors.length} trending issue{errors.length !== 1 ? 's' : ''} require attention
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-amber-100 text-amber-800">
+              {criticalErrors.length} Critical
+            </span>
+          </div>
+        </div>
       </div>
       
-      <ul role="list" className="space-y-3">
-        {errors.map((error) => {
-          const TrendIcon = error.trend === 'down' ? TrendingDownIcon : TrendingUpIcon;
-          const trendColor = getTrendColor(error.trend);
-          
-          return (
-            <li 
-              key={error.id} 
-              className="flex items-center justify-between gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors duration-150"
-            >
-              <div className="flex items-center gap-3 flex-1">
-                <TrendIcon 
-                  className={trendColor}
-                  aria-label={`Trending ${error.trend}`}
-                />
-                <div className="flex-1">
-                  <span className="font-medium text-gray-900">
-                    {error.name}
-                  </span>
-                  <span className="ml-2 text-xs text-gray-500 bg-white px-2 py-1 rounded border">
-                    {error.type}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="flex items-center">
-                <span 
-                  className={`text-sm font-semibold ${trendColor} flex items-center`}
-                  aria-label={`Change: ${error.change > 0 ? '+' : ''}${error.change}`}
-                >
-                  {error.change > 0 ? '+' : ''}{error.change}
-                </span>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-      
-      {errors.length > 0 && (
-        <div className="mt-4 text-xs text-gray-500 text-center">
-          Showing {errors.length} trending error{errors.length !== 1 ? 's' : ''}
+      {/* Critical Errors Section */}
+      {criticalErrors.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <PriorityHighIcon className="text-red-600 text-lg" />
+            <h4 className="font-bold text-red-800">Critical Issues</h4>
+          </div>
+          <div className="space-y-3">
+            {criticalErrors.map((error) => (
+              <ErrorItem key={error.id} error={error} isCritical={true} />
+            ))}
+          </div>
         </div>
       )}
+
+      {/* Moderate Errors Section */}
+      {moderateErrors.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <WarningAmberIcon className="text-amber-600 text-lg" />
+            <h4 className="font-bold text-amber-800">Monitor Closely</h4>
+          </div>
+          <div className="space-y-3">
+            {moderateErrors.map((error) => (
+              <ErrorItem key={error.id} error={error} isCritical={false} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ErrorItem: React.FC<{ error: any; isCritical: boolean }> = ({ error, isCritical }) => {
+  const TrendIcon = error.trend === 'down' ? TrendingDownIcon : TrendingUpIcon;
+  const changeColor = error.change < -5 ? 'text-red-600' : error.change < 0 ? 'text-amber-600' : 'text-emerald-600';
+  const bgColor = isCritical ? 'bg-red-50 border-red-200 hover:bg-red-100' : 'bg-amber-50 border-amber-200 hover:bg-amber-100';
+  
+  return (
+    <div className={`p-4 rounded-xl border-2 ${bgColor} transition-all duration-200 hover:shadow-md`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4 flex-1">
+          <div className={`p-2 rounded-lg ${isCritical ? 'bg-red-100' : 'bg-amber-100'}`}>
+            <TrendIcon 
+              className={`${isCritical ? 'text-red-600' : 'text-amber-600'} text-xl`}
+              aria-label={`Trending ${error.trend}`}
+            />
+          </div>
+          
+          <div className="flex-1">
+            <h5 className="font-bold text-slate-800 text-lg mb-1">
+              {error.name}
+            </h5>
+            <div className="flex items-center gap-2">
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${isCritical ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'} border`}>
+                {error.type}
+              </span>
+              <span className="text-slate-600 text-sm">
+                • Weekly trend
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="text-right">
+          <div className={`text-2xl font-black ${changeColor} mb-1`}>
+            {error.change > 0 ? '+' : ''}{error.change}
+          </div>
+          <div className="text-xs font-medium text-slate-600">
+            points
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

@@ -1,68 +1,144 @@
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import TrendingDownIcon from "@mui/icons-material/TrendingDown";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { HealthScoreCardProps } from '../../types/dashboard.types';
 import { useHealthScore } from '../../hooks/useHealthScore';
+import { getHealthScoreColors } from '../../styles/designSystem';
 
 const HealthScoreCard: React.FC<HealthScoreCardProps> = ({ healthScore }) => {
   const {
     scoreChange,
     pointsToStandard,
     status,
-    classificationColor,
     sanitizedScore,
     meetsStandard,
   } = useHealthScore(healthScore);
 
+  const colors = getHealthScoreColors(sanitizedScore);
+
   return (
     <div 
-      className="rounded-lg bg-white p-6 shadow hover:shadow-lg transition-shadow duration-200 flex flex-col items-center"
+      className={`relative overflow-hidden rounded-2xl ${colors.bg} ${colors.border} border-2 p-8 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]`}
       role="region"
       aria-labelledby="health-score-heading"
     >
-      <span 
-        className="text-5xl font-extrabold text-blue-700"
-        aria-label={`Health score: ${sanitizedScore} out of 100`}
-      >
-        {sanitizedScore}
-      </span>
+      {/* Gradient accent bar */}
+      <div className={`absolute top-0 left-0 right-0 h-1 ${colors.accent}`} />
       
-      <div className="mt-2 text-lg font-semibold text-gray-600 flex items-center gap-2">
-        <h2 id="health-score-heading" className="text-lg font-semibold">
-          Health Score
-        </h2>
-        <span className={`px-2 py-1 rounded text-sm font-bold ${classificationColor}`}>
-          {healthScore.classification}
-        </span>
+      {/* Score display */}
+      <div className="text-center mb-6">
+        <div className="relative inline-block">
+          <span 
+            className={`text-7xl font-black ${colors.score} tracking-tight`}
+            aria-label={`Health score: ${sanitizedScore} out of 100`}
+          >
+            {sanitizedScore}
+          </span>
+          <span className={`absolute -top-2 -right-8 text-2xl font-semibold ${colors.score} opacity-70`}>
+            /100
+          </span>
+        </div>
+        
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <h2 id="health-score-heading" className="text-xl font-bold text-slate-800">
+            Security Health Score
+          </h2>
+          <span className={`px-3 py-1 rounded-full text-sm font-bold ${colors.badge} shadow-sm`}>
+            Grade {healthScore.classification}
+          </span>
+        </div>
       </div>
-      
-      <div className="mt-2 text-gray-500 text-sm">
-        {status === 'positive' ? (
-          <span className="flex items-center text-green-600" aria-label={`Increased by ${scoreChange} points from last week`}>
-            <ArrowUpwardIcon fontSize="small" aria-hidden="true" /> 
-            +{scoreChange} vs last week
-          </span>
-        ) : status === 'negative' ? (
-          <span className="flex items-center text-red-600" aria-label={`Decreased by ${Math.abs(scoreChange)} points from last week`}>
-            <ArrowDownwardIcon fontSize="small" aria-hidden="true" /> 
-            {scoreChange} vs last week
-          </span>
-        ) : (
-          <span className="flex items-center text-gray-600" aria-label="No change from last week">
-            No change vs last week
-          </span>
-        )}
+
+      {/* Metrics grid */}
+      <div className="grid grid-cols-1 gap-4">
+        {/* Week comparison */}
+        <div className="flex items-center justify-between p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-white/20">
+          <div className="flex items-center gap-3">
+            {status === 'positive' ? (
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-emerald-100 rounded-lg">
+                  <TrendingUpIcon className="text-emerald-600 text-lg" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Weekly Change</p>
+                  <p className="text-emerald-600 font-bold text-lg" aria-label={`Increased by ${scoreChange} points from last week`}>
+                    +{scoreChange} points
+                  </p>
+                </div>
+              </div>
+            ) : status === 'negative' ? (
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <TrendingDownIcon className="text-red-600 text-lg" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Weekly Change</p>
+                  <p className="text-red-600 font-bold text-lg" aria-label={`Decreased by ${Math.abs(scoreChange)} points from last week`}>
+                    {scoreChange} points
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-slate-100 rounded-lg">
+                  <ArrowUpwardIcon className="text-slate-600 text-lg" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Weekly Change</p>
+                  <p className="text-slate-600 font-bold text-lg">No change</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Standard comparison */}
+        <div className="flex items-center justify-between p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-white/20">
+          {meetsStandard ? (
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <CheckCircleIcon className="text-emerald-600 text-lg" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-600">Standard Achievement</p>
+                <p className="text-emerald-600 font-bold text-lg">
+                  Exceeds Standard ({healthScore.standard})
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <span className="text-amber-600 font-bold text-lg">!</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-600">Points to Standard</p>
+                <p className="text-amber-600 font-bold text-lg" aria-label={`${pointsToStandard} points needed to reach standard of ${healthScore.standard}`}>
+                  {pointsToStandard} points needed
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-      
-      <div className="mt-2 text-gray-500 text-sm">
-        {meetsStandard ? (
-          <span className="text-green-600 font-medium">
-            ✓ Meets standard ({healthScore.standard})
-          </span>
-        ) : (
-          <span aria-label={`${pointsToStandard} points needed to reach standard of ${healthScore.standard}`}>
-            {pointsToStandard} points to reach standard ({healthScore.standard})
-          </span>
-        )}
+
+      {/* Progress indicator */}
+      <div className="mt-6">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm font-medium text-slate-600">Progress to Excellence</span>
+          <span className="text-sm font-bold text-slate-700">{sanitizedScore}%</span>
+        </div>
+        <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+          <div
+            className={`h-3 rounded-full transition-all duration-500 ${colors.accent} shadow-sm`}
+            style={{ width: `${sanitizedScore}%` }}
+            role="progressbar"
+            aria-valuenow={sanitizedScore}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          />
+        </div>
       </div>
     </div>
   );
