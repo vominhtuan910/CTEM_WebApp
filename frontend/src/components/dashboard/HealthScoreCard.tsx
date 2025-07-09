@@ -42,7 +42,7 @@ const HealthScoreCard: React.FC<HealthScoreCardProps> = ({ healthScore }) => {
         
         <div className="mt-3 flex items-center justify-center gap-3">
           <h2 id="health-score-heading" className="text-xl font-bold text-slate-800">
-            Security Health Score
+            Health Score
           </h2>
           <span className={`px-3 py-1 rounded-full text-sm font-bold ${colors.badge} shadow-sm`}>
             Grade {healthScore.classification}
