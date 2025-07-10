@@ -1,7 +1,10 @@
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import TrendingDownIcon from "@mui/icons-material/TrendingDown";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import {
+  ArrowUpIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
+  CheckCircleIcon,
+} from '@heroicons/react/24/outline';
+
 import { HealthScoreCardProps } from '../../types/dashboard.types';
 import { useHealthScore } from '../../hooks/useHealthScore';
 import { getHealthScoreColors } from '../../styles/designSystem';
@@ -35,9 +38,6 @@ const HealthScoreCard: React.FC<HealthScoreCardProps> = ({ healthScore }) => {
           >
             {sanitizedScore}
           </span>
-          <span className={`absolute -top-2 -right-8 text-2xl font-semibold ${colors.score} opacity-70`}>
-            /100
-          </span>
         </div>
         
         <div className="mt-3 flex items-center justify-center gap-3">
@@ -58,7 +58,7 @@ const HealthScoreCard: React.FC<HealthScoreCardProps> = ({ healthScore }) => {
             {status === 'positive' ? (
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-emerald-100 rounded-lg">
-                  <TrendingUpIcon className="text-emerald-600 text-lg" aria-hidden="true" />
+                  <ArrowTrendingUpIcon className="text-emerald-600 h-5 w-5" aria-hidden="true" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-600">Weekly Change</p>
@@ -70,7 +70,7 @@ const HealthScoreCard: React.FC<HealthScoreCardProps> = ({ healthScore }) => {
             ) : status === 'negative' ? (
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-red-100 rounded-lg">
-                  <TrendingDownIcon className="text-red-600 text-lg" aria-hidden="true" />
+                  <ArrowTrendingDownIcon className="text-red-600 h-5 w-5" aria-hidden="true" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-600">Weekly Change</p>
@@ -82,7 +82,7 @@ const HealthScoreCard: React.FC<HealthScoreCardProps> = ({ healthScore }) => {
             ) : (
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-slate-100 rounded-lg">
-                  <ArrowUpwardIcon className="text-slate-600 text-lg" aria-hidden="true" />
+                  <ArrowUpIcon className="text-slate-600 h-5 w-5" aria-hidden="true" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-600">Weekly Change</p>
@@ -98,7 +98,7 @@ const HealthScoreCard: React.FC<HealthScoreCardProps> = ({ healthScore }) => {
           {meetsStandard ? (
             <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-100 rounded-lg">
-                <CheckCircleIcon className="text-emerald-600 text-lg" />
+                <CheckCircleIcon className="text-emerald-600 h-5 w-5" />
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-600">Standard Achievement</p>

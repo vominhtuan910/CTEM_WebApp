@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import BugReportIcon from "@mui/icons-material/BugReport";
-import SecurityIcon from "@mui/icons-material/Security";
-import PublicOffIcon from "@mui/icons-material/PublicOff";
-import ExitToAppIcon from "@mui/icons-material/ExitToApp";
+import {
+  ArrowTrendingUpIcon,
+  BugAntIcon,
+  ShieldExclamationIcon,
+  GlobeAltIcon,
+  ArrowTopRightOnSquareIcon,
+} from '@heroicons/react/24/outline';
 import { ThreatsSummaryCardProps } from '../../types/dashboard.types';
 
 const ThreatsSummaryCard: React.FC<ThreatsSummaryCardProps> = ({ 
@@ -37,7 +39,7 @@ const ThreatsSummaryCard: React.FC<ThreatsSummaryCardProps> = ({
       <div className="mb-6">
         <div className="flex items-center gap-4 mb-4">
           <div className={`p-3 ${iconBg} rounded-xl`}>
-            <BugReportIcon className={`${iconColor} text-2xl`} aria-hidden="true" />
+            <BugAntIcon className={`${iconColor} h-6 w-6`} aria-hidden="true" />
           </div>
           <div className="flex-1">
             <h3 id={`threats-${period}-heading`} className="text-2xl font-bold text-slate-800">
@@ -66,7 +68,7 @@ const ThreatsSummaryCard: React.FC<ThreatsSummaryCardProps> = ({
       {summary.impactful && summary.impactful.length > 0 ? (
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <SecurityIcon className={iconColor} />
+            <ShieldExclamationIcon className={`${iconColor} h-5 w-5`} />
             <h4 className="font-bold text-slate-800 text-lg">Critical Threats</h4>
           </div>
           
@@ -83,7 +85,7 @@ const ThreatsSummaryCard: React.FC<ThreatsSummaryCardProps> = ({
                     aria-label={`View details for ${threat.name}`}
                   >
                     {threat.name}
-                    <ExitToAppIcon className="text-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ArrowTopRightOnSquareIcon className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </Link>
                   
                   <div className="flex items-center gap-2">
@@ -91,7 +93,7 @@ const ThreatsSummaryCard: React.FC<ThreatsSummaryCardProps> = ({
                       {threat.type}
                     </span>
                     <div className="flex items-center gap-1">
-                      <TrendingUpIcon className="text-emerald-600 text-sm" aria-hidden="true" />
+                      <ArrowTrendingUpIcon className="text-emerald-600 h-4 w-4" aria-hidden="true" />
                       <span className="text-emerald-600 font-bold text-sm">
                         +{threat.increase}
                       </span>
@@ -111,7 +113,7 @@ const ThreatsSummaryCard: React.FC<ThreatsSummaryCardProps> = ({
       ) : (
         <div className="text-center p-6 bg-white/60 backdrop-blur-sm rounded-xl border border-white/20">
           <div className="p-3 bg-emerald-100 rounded-full w-fit mx-auto mb-3">
-            <SecurityIcon className="text-emerald-600 text-xl" />
+            <ShieldExclamationIcon className="h-4 w-4" />
           </div>
           <h4 className="font-bold text-emerald-800 mb-1">No Critical Threats</h4>
           <p className="text-emerald-600 text-sm">
@@ -124,7 +126,7 @@ const ThreatsSummaryCard: React.FC<ThreatsSummaryCardProps> = ({
       <div className="mt-6 pt-4 border-t border-white/20">
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-slate-600">
-            <PublicOffIcon className="text-xs" />
+            <GlobeAltIcon className="h-4 w-4" />
             <span>Real-time monitoring</span>
           </div>
           <div className="text-slate-500">

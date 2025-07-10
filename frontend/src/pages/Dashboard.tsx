@@ -1,10 +1,11 @@
-import SecurityIcon from "@mui/icons-material/Security";
-import BarChartIcon from "@mui/icons-material/BarChart";
-import PieChartIcon from "@mui/icons-material/PieChart";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import ShowChartIcon from "@mui/icons-material/ShowChart";
-import AssessmentIcon from "@mui/icons-material/Assessment";
+import {
+  ShieldExclamationIcon,
+  ChartBarIcon,
+  ChartPieIcon,
+  ArrowPathIcon,
+  ChartBarSquareIcon,
+  ClipboardDocumentListIcon,
+} from '@heroicons/react/24/outline';
 
 import { useDashboardData } from '../hooks/useDashboardData';
 import {
@@ -14,7 +15,7 @@ import {
   MetricsChart,
   DashboardSkeleton,
   ErrorBoundary,
-} from '../components/dashboard';
+} from '../components/Dashboard';
 
 const Dashboard: React.FC = () => {
   const { data, isLoading, error, refetch } = useDashboardData();
@@ -32,7 +33,7 @@ const Dashboard: React.FC = () => {
           <div className="rounded-2xl bg-white p-8 shadow-xl border border-red-100">
             <div className="text-center">
               <div className="p-4 bg-red-100 rounded-full w-fit mx-auto mb-6">
-                <SecurityIcon 
+                <ShieldExclamationIcon 
                   className="text-red-600" 
                   style={{ fontSize: '2.5rem' }}
                   aria-hidden="true"
@@ -52,7 +53,7 @@ const Dashboard: React.FC = () => {
                 className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-200 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
                 aria-label="Retry loading dashboard"
               >
-                <RefreshIcon fontSize="small" />
+                <ArrowPathIcon className="h-4 w-4" />
                 Try Again
               </button>
             </div>
@@ -68,7 +69,7 @@ const Dashboard: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex items-center justify-center">
         <div className="text-center">
           <div className="p-6 bg-slate-100 rounded-full w-fit mx-auto mb-6">
-            <SecurityIcon 
+            <ShieldExclamationIcon 
               className="text-slate-400" 
               style={{ fontSize: '4rem' }}
             />
@@ -85,45 +86,9 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <ErrorBoundary onError={(error) => console.error('Dashboard Error:', error)}>
+    <ErrorBoundary onError={(error: Error) => console.error('Dashboard Error:', error)}>
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        {/* Enhanced Header */}
-        <header className="mb-6 lg:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg">
-                <DashboardIcon 
-                  className="text-white" 
-                  style={{ fontSize: '2rem' }}
-                  aria-hidden="true"
-                />
-              </div>
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight">
-                  Security Dashboard
-                </h1>
-                <p className="text-slate-600 font-medium mt-1">
-                  Real-time security monitoring and analytics
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-sm rounded-xl border border-white/20">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-slate-600">Live</span>
-              </div>
-              <button
-                onClick={refetch}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 border border-slate-200 rounded-xl shadow-sm hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-200 transition-all duration-200 font-medium text-slate-700"
-                aria-label="Refresh dashboard data"
-              >
-                <RefreshIcon fontSize="small" />
-                <span className="hidden sm:inline">Refresh</span>
-              </button>
-            </div>
-          </div>
-        </header>
+        {/* Removed manual refresh button (auto-refresh elsewhere) */}
 
         {/* Health Score Section */}
         <section 
@@ -132,7 +97,7 @@ const Dashboard: React.FC = () => {
         >
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-emerald-100 rounded-lg">
-              <AssessmentIcon className="text-emerald-600" />
+              <ClipboardDocumentListIcon className="text-emerald-600 h-4 w-4" />
             </div>
             <div>
               <h2 id="health-section-heading" className="text-2xl font-bold text-slate-800">
@@ -160,7 +125,7 @@ const Dashboard: React.FC = () => {
         >
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-red-100 rounded-lg">
-              <SecurityIcon className="text-red-600" />
+              <ShieldExclamationIcon className="text-red-600" />
             </div>
             <div>
               <h2 id="threats-section-heading" className="text-2xl font-bold text-slate-800">
@@ -192,7 +157,7 @@ const Dashboard: React.FC = () => {
         >
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-violet-100 rounded-lg">
-              <ShowChartIcon className="text-violet-600" />
+              <ChartBarSquareIcon className="text-violet-600" />
             </div>
             <div>
               <h2 id="analytics-section-heading" className="text-2xl font-bold text-slate-800">
@@ -206,19 +171,19 @@ const Dashboard: React.FC = () => {
             <MetricsChart
               title="Common Threats by Frequency"
               data={data.commonThreats}
-              icon={BarChartIcon}
+              icon={ChartBarIcon}
             />
             
             <MetricsChart
               title="Most Attacked Asset Types"
               data={data.attackedAssets}
-              icon={PieChartIcon}
+              icon={ChartPieIcon}
             />
             
             <MetricsChart
               title="Common Attack Methods"
               data={data.attackMethods}
-              icon={BarChartIcon}
+              icon={ChartBarSquareIcon}
             />
           </div>
         </section>

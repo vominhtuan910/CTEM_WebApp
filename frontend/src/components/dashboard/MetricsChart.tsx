@@ -1,7 +1,6 @@
 import { MetricsChartProps } from '../../types/dashboard.types';
 import { sortByCount, formatNumber } from '../../utils/dashboardHelpers';
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import AnalyticsIcon from "@mui/icons-material/Analytics";
+import { ArrowTrendingUpIcon, ChartBarSquareIcon } from '@heroicons/react/24/outline';
 
 const MetricsChart: React.FC<MetricsChartProps> = ({ title, data, icon: Icon }) => {
   const sortedData = sortByCount(data);
@@ -58,7 +57,11 @@ const MetricsChart: React.FC<MetricsChartProps> = ({ title, data, icon: Icon }) 
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-3">
           <div className={`p-2 ${theme.iconBg} rounded-lg`}>
-            {Icon ? <Icon className={`${theme.iconColor} text-xl`} aria-hidden="true" /> : <AnalyticsIcon className={`${theme.iconColor} text-xl`} />}
+            {Icon ? (
+              <Icon className={`${theme.iconColor} h-5 w-5`} aria-hidden="true" />
+            ) : (
+              <ChartBarSquareIcon className={`${theme.iconColor} h-5 w-5`} />
+            )}
           </div>
           <div className="flex-1">
             <h3 id={`metrics-${title.replace(/\s+/g, '-').toLowerCase()}-heading`} className="text-lg font-bold text-slate-800">
@@ -115,7 +118,7 @@ const MetricsChart: React.FC<MetricsChartProps> = ({ title, data, icon: Icon }) 
                       {item.name}
                     </span>
                     {isTopTier && (
-                      <TrendingUpIcon className="text-emerald-600 text-sm" />
+                      <ArrowTrendingUpIcon className="text-emerald-600 h-4 w-4" />
                     )}
                   </div>
                   <div className="text-right">

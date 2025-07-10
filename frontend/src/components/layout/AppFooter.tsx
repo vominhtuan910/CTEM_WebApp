@@ -1,12 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import SecurityIcon from '@mui/icons-material/Security';
-import EmailIcon from '@mui/icons-material/Email';
-import PhoneIcon from '@mui/icons-material/Phone';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
-import GitHubIcon from '@mui/icons-material/GitHub';
-import LinkedInIcon from '@mui/icons-material/LinkedIn';
-import TwitterIcon from '@mui/icons-material/Twitter';
+import {
+  ShieldCheckIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  MapPinIcon,
+  CodeBracketSquareIcon,
+  UserGroupIcon,
+  HashtagIcon,
+} from '@heroicons/react/24/outline';
 
 const AppFooter: React.FC = () => {
     const currentYear = new Date().getFullYear();
@@ -19,9 +21,9 @@ const AppFooter: React.FC = () => {
     ];
 
     const socialLinks = [
-        { icon: GitHubIcon, href: 'https://github.com', label: 'GitHub' },
-        { icon: LinkedInIcon, href: 'https://linkedin.com', label: 'LinkedIn' },
-        { icon: TwitterIcon, href: 'https://twitter.com', label: 'Twitter' },
+        { icon: CodeBracketSquareIcon, href: 'https://github.com', label: 'GitHub' },
+        { icon: UserGroupIcon, href: 'https://linkedin.com', label: 'LinkedIn' },
+        { icon: HashtagIcon, href: 'https://twitter.com', label: 'Twitter' },
     ];
 
     return (
@@ -33,7 +35,7 @@ const AppFooter: React.FC = () => {
                     <div className="space-y-4">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
-                                <SecurityIcon className="h-6 w-6 text-white" />
+                                <ShieldCheckIcon className="h-6 w-6 text-white" />
                             </div>
                             <div>
                                 <h3 className="text-xl font-black text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
@@ -75,7 +77,7 @@ const AppFooter: React.FC = () => {
                         </h4>
                         <div className="space-y-3">
                             <div className="flex items-center gap-3 text-slate-300">
-                                <EmailIcon className="h-4 w-4 text-blue-400" />
+                                <EnvelopeIcon className="h-4 w-4 text-blue-400" />
                                 <span className="text-sm">security@ctem.com</span>
                             </div>
                             <div className="flex items-center gap-3 text-slate-300">
@@ -83,7 +85,7 @@ const AppFooter: React.FC = () => {
                                 <span className="text-sm">+1 (555) 123-4567</span>
                             </div>
                             <div className="flex items-center gap-3 text-slate-300">
-                                <LocationOnIcon className="h-4 w-4 text-blue-400" />
+                                <MapPinIcon className="h-4 w-4 text-blue-400" />
                                 <span className="text-sm">San Francisco, CA</span>
                             </div>
                         </div>
@@ -150,7 +152,7 @@ const AppFooter: React.FC = () => {
             <div className="absolute bottom-4 right-4 hidden lg:block">
                 <div className="p-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm border border-green-500/30 rounded-xl">
                     <div className="flex items-center gap-2 text-green-400">
-                        <SecurityIcon className="h-4 w-4" />
+                        <ShieldCheckIcon className="h-4 w-4" />
                         <span className="text-xs font-medium">Secured Platform</span>
                     </div>
                 </div>
