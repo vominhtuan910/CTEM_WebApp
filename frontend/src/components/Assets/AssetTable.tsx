@@ -1,20 +1,34 @@
 import { useState } from 'react';
 import { 
-    Search, Visibility, Edit, Delete, Computer, PhoneAndroid, Storage, Router
+    Search, Visibility, Edit, Delete, Computer, PhoneAndroid, Storage, Router,
+    GetApp, FilterList
 } from '@mui/icons-material';
+import { Button, Menu, MenuItem, Checkbox, FormControlLabel, Popover } from '@mui/material';
 
 // Types
 export interface Asset {
     id: string;
     name: string;
-    ipAddress: string;
+    ipAddress: string[];  // Changed to array since assets can have multiple IPs
     operatingSystem: string;
     services: string[];
     lastUpdated: string;
+    createdAt: string;
+    healthScore: number;
+    priority: {
+        confidentiality: number;
+        integrity: number;
+        availability: number;
+    };
+    issuesCount: number;
+    labels: string[];
+    status: 'active' | 'inactive';
+    agentStatus: 'installed' | 'not_installed' | 'error';
 }
 
 interface AssetTableProps {
     assets: Asset[];
+    onExportCSV?: () => void;
 }
 
 // SearchBar Component
@@ -40,8 +54,12 @@ const TableHeader = () => (
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Host/Device Name</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">IP Address</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Operating System</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Services</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Last Updated</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Health Score</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Priority (CIA)</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Issues</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Labels</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Created At</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
         </tr>
     </thead>
@@ -60,11 +78,25 @@ const AssetRow = ({ asset }: { asset: Asset }) => {
         }
         return <Router className="text-sm" />;
     };
+
+    const getHealthScoreColor = (score: number) => {
+        if (score >= 80) return 'text-green-600 bg-green-50';
+        if (score >= 60) return 'text-yellow-600 bg-yellow-50';
+        return 'text-red-600 bg-red-50';
+    };
     
     return (
         <tr key={asset.id} className="hover:bg-gray-50 odd:bg-gray-50">
-            <td className="px-6 py-4 whitespace-nowrap">{asset.name}</td>
-            <td className="px-6 py-4 whitespace-nowrap">{asset.ipAddress}</td>
+            <td className="px-6 py-4 whitespace-nowrap">
+                <div className="flex items-center">
+                    <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                        asset.agentStatus === 'installed' ? 'bg-green-500' : 
+                        asset.agentStatus === 'error' ? 'bg-red-500' : 'bg-gray-500'
+                    }`}></span>
+                    {asset.name}
+                </div>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap">{asset.ipAddress.join(', ')}</td>
             <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center gap-2">
                     {getOsIcon(asset.operatingSystem)}
@@ -72,18 +104,44 @@ const AssetRow = ({ asset }: { asset: Asset }) => {
                 </div>
             </td>
             <td className="px-6 py-4 whitespace-nowrap">
+                <span className={`px-2 py-1 rounded-full text-sm ${getHealthScoreColor(asset.healthScore)}`}>
+                    {asset.healthScore}%
+                </span>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap">
+                <div className="flex gap-1">
+                    <span className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded">C:{asset.priority.confidentiality}</span>
+                    <span className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded">I:{asset.priority.integrity}</span>
+                    <span className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded">A:{asset.priority.availability}</span>
+                </div>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap">
+                <span className={`px-2 py-1 rounded-full text-sm ${asset.issuesCount > 0 ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50'}`}>
+                    {asset.issuesCount}
+                </span>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex flex-wrap gap-1">
-                    {asset.services.map((service, idx) => (
+                    {asset.labels.map((label, idx) => (
                         <span 
                             key={idx} 
-                            className="px-2 py-1 text-xs border border-blue-500 text-blue-600 rounded-full"
+                            className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full"
                         >
-                            {service}
+                            {label}
                         </span>
                     ))}
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap">{asset.lastUpdated}</td>
+            <td className="px-6 py-4 whitespace-nowrap">
+                <span className={`px-2 py-1 rounded-full text-sm ${
+                    asset.status === 'active' ? 'text-green-600 bg-green-50' : 'text-gray-600 bg-gray-50'
+                }`}>
+                    {asset.status}
+                </span>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {new Date(asset.createdAt).toLocaleDateString()}
+            </td>
             <td className="px-6 py-4 whitespace-nowrap">
                 <ActionButtons />
             </td>
@@ -197,11 +255,96 @@ const Pagination = ({
     </div>
 );
 
+// FilterMenu Component
+const FilterMenu = ({ 
+    anchorEl,
+    open,
+    onClose,
+    filters,
+    onFilterChange
+}: { 
+    anchorEl: null | HTMLElement;
+    open: boolean;
+    onClose: () => void;
+    filters: {
+        showInactive: boolean;
+        showNoAgent: boolean;
+        showWithIssues: boolean;
+        healthScoreMin: number;
+    };
+    onFilterChange: (filters: any) => void;
+}) => (
+    <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={onClose}
+        anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+        }}
+    >
+        <div className="p-4 w-64">
+            <h3 className="text-sm font-medium mb-3">Filters</h3>
+            <div className="space-y-2">
+                <FormControlLabel
+                    control={
+                        <Checkbox
+                            checked={filters.showInactive}
+                            onChange={(e) => onFilterChange({ ...filters, showInactive: e.target.checked })}
+                            size="small"
+                        />
+                    }
+                    label="Show Inactive Assets"
+                />
+                <FormControlLabel
+                    control={
+                        <Checkbox
+                            checked={filters.showNoAgent}
+                            onChange={(e) => onFilterChange({ ...filters, showNoAgent: e.target.checked })}
+                            size="small"
+                        />
+                    }
+                    label="Show Assets without Agent"
+                />
+                <FormControlLabel
+                    control={
+                        <Checkbox
+                            checked={filters.showWithIssues}
+                            onChange={(e) => onFilterChange({ ...filters, showWithIssues: e.target.checked })}
+                            size="small"
+                        />
+                    }
+                    label="Show Assets with Issues"
+                />
+                <div>
+                    <label className="text-sm">Minimum Health Score</label>
+                    <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={filters.healthScoreMin}
+                        onChange={(e) => onFilterChange({ ...filters, healthScoreMin: Number(e.target.value) })}
+                        className="w-full"
+                    />
+                    <div className="text-sm text-gray-500">{filters.healthScoreMin}%</div>
+                </div>
+            </div>
+        </div>
+    </Popover>
+);
+
 // Main AssetTable Component
-const AssetTable: React.FC<AssetTableProps> = ({ assets }) => {
+const AssetTable: React.FC<AssetTableProps> = ({ assets, onExportCSV }) => {
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
+    const [filters, setFilters] = useState({
+        showInactive: false,
+        showNoAgent: false,
+        showWithIssues: false,
+        healthScoreMin: 0
+    });
 
     // Handle page change
     const handleChangePage = (_: unknown, newPage: number) => {
@@ -214,18 +357,62 @@ const AssetTable: React.FC<AssetTableProps> = ({ assets }) => {
         setPage(0);
     };
 
-    // Filter assets based on search term
-    const filteredAssets = assets.filter(asset => 
-        asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.ipAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.operatingSystem.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Filter assets based on search term and filters
+    const filteredAssets = assets.filter(asset => {
+        const matchesSearch = 
+            asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            asset.ipAddress.some(ip => ip.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            asset.operatingSystem.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            asset.labels.some(label => label.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        const matchesFilters = 
+            (filters.showInactive || asset.status === 'active') &&
+            (filters.showNoAgent || asset.agentStatus === 'installed') &&
+            (filters.showWithIssues ? asset.issuesCount > 0 : true) &&
+            asset.healthScore >= filters.healthScoreMin;
+
+        return matchesSearch && matchesFilters;
+    });
+
+    const handleExport = () => {
+        if (onExportCSV) {
+            onExportCSV();
+        }
+    };
 
     return (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="p-4 bg-gray-100">
-                <h2 className="text-lg font-bold text-blue-600">Assets</h2>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-bold text-blue-600">Assets</h2>
+                    <div className="flex gap-2">
+                        <Button
+                            startIcon={<FilterList />}
+                            onClick={(e) => setFilterAnchorEl(e.currentTarget)}
+                            variant="outlined"
+                            size="small"
+                        >
+                            Filters
+                        </Button>
+                        <Button
+                            startIcon={<GetApp />}
+                            onClick={handleExport}
+                            variant="outlined"
+                            size="small"
+                        >
+                            Export CSV
+                        </Button>
+                    </div>
+                </div>
                 
+                <FilterMenu
+                    anchorEl={filterAnchorEl}
+                    open={Boolean(filterAnchorEl)}
+                    onClose={() => setFilterAnchorEl(null)}
+                    filters={filters}
+                    onFilterChange={setFilters}
+                />
+
                 <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
 
                 <div className="overflow-x-auto">

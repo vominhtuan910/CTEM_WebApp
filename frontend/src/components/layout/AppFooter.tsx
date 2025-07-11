@@ -5,10 +5,8 @@ import {
   EnvelopeIcon,
   PhoneIcon,
   MapPinIcon,
-  CodeBracketSquareIcon,
-  UserGroupIcon,
-  HashtagIcon,
 } from '@heroicons/react/24/outline';
+import { GitHub, LinkedIn, X as XIcon } from '@mui/icons-material';
 
 const AppFooter: React.FC = () => {
     const currentYear = new Date().getFullYear();
@@ -21,9 +19,9 @@ const AppFooter: React.FC = () => {
     ];
 
     const socialLinks = [
-        { icon: CodeBracketSquareIcon, href: 'https://github.com', label: 'GitHub' },
-        { icon: UserGroupIcon, href: 'https://linkedin.com', label: 'LinkedIn' },
-        { icon: HashtagIcon, href: 'https://twitter.com', label: 'Twitter' },
+        { icon: GitHub, href: 'https://github.com', label: 'GitHub' },
+        { icon: LinkedIn, href: 'https://linkedin.com', label: 'LinkedIn' },
+        { icon: XIcon, href: 'https://x.com', label: 'X' },
     ];
 
     return (
@@ -38,7 +36,7 @@ const AppFooter: React.FC = () => {
                                 <ShieldCheckIcon className="h-6 w-6 text-white" />
                             </div>
                             <div>
-                                <h3 className="text-xl font-black text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                                <h3 className="text-xl font-black text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text">
                                     CTEM SYSTEM
                                 </h3>
                                 <p className="text-xs text-slate-400 font-medium">
@@ -126,7 +124,7 @@ const AppFooter: React.FC = () => {
                         {/* Social Links */}
                         <div className="flex items-center gap-4">
                             <span className="text-slate-400 text-sm hidden sm:block">Follow us:</span>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                                 {socialLinks.map((social) => {
                                     const Icon = social.icon;
                                     return (
@@ -135,25 +133,15 @@ const AppFooter: React.FC = () => {
                                             href={social.href}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors duration-200 group"
+                                            className="text-slate-400 hover:text-white transition-colors duration-200"
                                             aria-label={social.label}
                                         >
-                                            <Icon className="h-4 w-4 text-slate-400 group-hover:text-white transition-colors" />
+                                            <Icon className="h-5 w-5" />
                                         </a>
                                     );
                                 })}
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Security Badge */}
-            <div className="absolute bottom-4 right-4 hidden lg:block">
-                <div className="p-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm border border-green-500/30 rounded-xl">
-                    <div className="flex items-center gap-2 text-green-400">
-                        <ShieldCheckIcon className="h-4 w-4" />
-                        <span className="text-xs font-medium">Secured Platform</span>
                     </div>
                 </div>
             </div>
