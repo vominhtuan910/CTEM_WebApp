@@ -1,6 +1,6 @@
 const { exec } = require('child_process');
 const fs = require('fs');
-const outputFilePath = 'output/sockets_output.xml';
+const outputFilePath = 'output/sockets_output.json';
 
 exec('ss -tuln', (error, stdout, stderr) => {
   if (error) {
