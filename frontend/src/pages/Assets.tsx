@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { 
     Box, Typography, Paper, ToggleButton, ToggleButtonGroup,
     Button, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
-    Container, IconButton, FormControlLabel, Checkbox, FormGroup, Divider,
-    useTheme, useMediaQuery, alpha, Card
+    Container, IconButton, FormControlLabel, Checkbox, FormGroup,
+    useTheme, alpha, Card
 } from '@mui/material';
 import { 
     GridView, List, Add, CloudUpload, FileDownload,
@@ -82,7 +82,6 @@ const dialogStyles = {
 
 const Assets = () => {
     const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [assets, setAssets] = useState<Asset[]>([]);

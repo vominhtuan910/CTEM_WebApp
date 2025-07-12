@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { 
     Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions,
     Button, IconButton, LinearProgress, Tooltip,
-    useTheme, useMediaQuery, alpha
+    useTheme, alpha
 } from '@mui/material';
 import { 
     CloudUpload, 
@@ -20,7 +20,6 @@ interface ImportDialogProps {
 
 const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose, onImportComplete }) => {
     const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const fileInputRef = useRef<HTMLInputElement>(null);
     const uploadAbortController = useRef<AbortController | null>(null);
     
@@ -214,14 +213,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose, onImportComp
             maxWidth="sm"
             fullWidth
             PaperProps={{
-                sx: {
-                    ...dialogStyles.paper,
-                    width: isMobile ? '100%' : undefined,
-                    height: isMobile ? '100%' : undefined,
-                    margin: isMobile ? 0 : undefined,
-                    maxHeight: isMobile ? '100%' : undefined,
-                    borderRadius: isMobile ? 0 : dialogStyles.paper.borderRadius
-                }
+                sx: dialogStyles.paper
             }}
             TransitionProps={{
                 style: { 

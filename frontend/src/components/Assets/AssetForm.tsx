@@ -4,7 +4,7 @@ import {
     FormControl, InputLabel, Select, Typography,
     Slider
 } from '@mui/material';
-import { Asset, AssetType, AssetStatus } from '../../types/asset.types';
+import { Asset } from '../../types/asset.types';
 
 // Create a type-safe Grid component
 const Grid = MuiGrid as typeof MuiGrid & { item?: boolean };

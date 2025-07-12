@@ -14,9 +14,20 @@ import {
   Checkbox,
   FormGroup,
   Divider,
-  Alert
+  Alert,
+  Tabs,
+  Tab,
+  Paper,
+  IconButton,
+  Tooltip,
+  useTheme,
+  alpha
 } from '@mui/material';
 import GetAppIcon from '@mui/icons-material/GetApp';
+import FileCopyIcon from '@mui/icons-material/FileCopy';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import TableChartIcon from '@mui/icons-material/TableChart';
+import CodeIcon from '@mui/icons-material/Code';
 import { format } from 'date-fns';
 import { Vulnerability } from '../../types/vulnerability.types';
 
@@ -26,14 +37,50 @@ interface ExportDialogProps {
   vulnerabilities: Vulnerability[];
 }
 
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+const TabPanel = (props: TabPanelProps) => {
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`export-tabpanel-${index}`}
+      aria-labelledby={`export-tab-${index}`}
+      {...other}
+      style={{ width: '100%' }}
+    >
+      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
+    </div>
+  );
+};
+
 const ExportDialog: React.FC<ExportDialogProps> = ({ open, onClose, vulnerabilities }) => {
+  const theme = useTheme();
   const [exportFormat, setExportFormat] = useState<'csv' | 'json' | 'pdf'>('csv');
   const [selectedFields, setSelectedFields] = useState<string[]>([
     'name', 'type', 'cvssScore', 'severityLevel', 'affectedAssets', 'discoveryDate', 'status'
   ]);
+  const [tabValue, setTabValue] = useState(0);
+  const [previewData, setPreviewData] = useState<string>('');
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+    if (newValue === 1) {
+      generatePreview();
+    }
+  };
 
   const handleFormatChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setExportFormat(event.target.value as 'csv' | 'json' | 'pdf');
+    if (tabValue === 1) {
+      // Update preview when format changes
+      setTimeout(() => generatePreview(), 0);
+    }
   };
 
   const handleFieldToggle = (field: string) => {
@@ -42,6 +89,78 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ open, onClose, vulnerabilit
         ? prev.filter(f => f !== field) 
         : [...prev, field]
     );
+    if (tabValue === 1) {
+      // Update preview when fields change
+      setTimeout(() => generatePreview(), 0);
+    }
+  };
+
+  const handleSelectAll = () => {
+    setSelectedFields(Object.keys(fieldLabels));
+    if (tabValue === 1) {
+      setTimeout(() => generatePreview(), 0);
+    }
+  };
+
+  const handleSelectNone = () => {
+    setSelectedFields([]);
+    if (tabValue === 1) {
+      setTimeout(() => generatePreview(), 0);
+    }
+  };
+
+  const generatePreview = () => {
+    if (selectedFields.length === 0) {
+      setPreviewData('No fields selected for preview');
+      return;
+    }
+
+    switch (exportFormat) {
+      case 'csv':
+        setPreviewData(generateCSVPreview());
+        break;
+      case 'json':
+        setPreviewData(generateJSONPreview());
+        break;
+      case 'pdf':
+        setPreviewData('PDF preview not available. PDFs can be previewed after export.');
+        break;
+    }
+  };
+
+  const generateCSVPreview = (): string => {
+    const headers = selectedFields.map(field => fieldLabels[field]);
+    const rows = vulnerabilities.slice(0, 3).map(vuln => {
+      return selectedFields.map(field => {
+        switch (field) {
+          case 'affectedAssets':
+            return vuln.affectedAssets.join(', ');
+          case 'discoveryDate':
+            return format(new Date(vuln.discoveryDate), 'yyyy-MM-dd');
+          case 'cveReferences':
+            return vuln.cveReferences.join(', ');
+          default:
+            return vuln[field as keyof Vulnerability]?.toString() || '';
+        }
+      });
+    });
+    
+    return [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n') + '\n...(showing first 3 rows of ' + vulnerabilities.length + ')';
+  };
+
+  const generateJSONPreview = (): string => {
+    const jsonData = vulnerabilities.slice(0, 3).map(vuln => {
+      const exportObj: Record<string, any> = {};
+      selectedFields.forEach(field => {
+        exportObj[field] = vuln[field as keyof Vulnerability];
+      });
+      return exportObj;
+    });
+    
+    return JSON.stringify(jsonData, null, 2) + '\n...(showing first 3 items of ' + vulnerabilities.length + ')';
   };
 
   const handleExport = () => {
@@ -65,21 +184,7 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ open, onClose, vulnerabilit
   };
 
   const exportToCSV = () => {
-    const headers = selectedFields.map(field => {
-      switch (field) {
-        case 'name': return 'Name';
-        case 'type': return 'Type';
-        case 'cvssScore': return 'CVSS Score';
-        case 'severityLevel': return 'Severity';
-        case 'affectedAssets': return 'Affected Assets';
-        case 'discoveryDate': return 'Discovery Date';
-        case 'status': return 'Status';
-        case 'description': return 'Description';
-        case 'recommendations': return 'Recommendations';
-        case 'cveReferences': return 'CVE References';
-        default: return field;
-      }
-    });
+    const headers = selectedFields.map(field => fieldLabels[field]);
 
     const csvData = vulnerabilities.map(vuln => {
       return selectedFields.map(field => {
@@ -101,7 +206,7 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ open, onClose, vulnerabilit
       ...csvData.map(row => row.join(','))
     ].join('\n');
     
-    downloadFile(csvContent, 'vulnerabilities.csv', 'text/csv');
+    downloadFile(csvContent, `vulnerabilities_${format(new Date(), 'yyyyMMdd')}.csv`, 'text/csv');
   };
 
   const exportToJSON = () => {
@@ -114,7 +219,7 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ open, onClose, vulnerabilit
     });
     
     const jsonContent = JSON.stringify(jsonData, null, 2);
-    downloadFile(jsonContent, 'vulnerabilities.json', 'application/json');
+    downloadFile(jsonContent, `vulnerabilities_${format(new Date(), 'yyyyMMdd')}.json`, 'application/json');
   };
 
   const downloadFile = (content: string, fileName: string, contentType: string) => {
@@ -129,6 +234,10 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ open, onClose, vulnerabilit
     document.body.removeChild(link);
   };
 
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(previewData);
+  };
+
   const fieldLabels: Record<string, string> = {
     name: 'Name',
     type: 'Type',
@@ -139,11 +248,28 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ open, onClose, vulnerabilit
     status: 'Status',
     description: 'Description',
     recommendations: 'Recommendations',
-    cveReferences: 'CVE References'
+    cveReferences: 'CVE References',
+    vector: 'CVSS Vector',
+    exploitAvailable: 'Exploit Available',
+    patchAvailable: 'Patch Available',
+    assignedTo: 'Assigned To',
+    lastUpdated: 'Last Updated',
+    tags: 'Tags'
+  };
+
+  const getFormatIcon = () => {
+    switch (exportFormat) {
+      case 'csv':
+        return <TableChartIcon sx={{ mr: 1 }} />;
+      case 'json':
+        return <CodeIcon sx={{ mr: 1 }} />;
+      case 'pdf':
+        return <PictureAsPdfIcon sx={{ mr: 1 }} />;
+    }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box display="flex" alignItems="center">
           <GetAppIcon sx={{ mr: 1 }} />
@@ -151,58 +277,151 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ open, onClose, vulnerabilit
         </Box>
       </DialogTitle>
       <DialogContent>
-        <Typography variant="subtitle2" gutterBottom>
-          Export {vulnerabilities.length} vulnerabilities
-        </Typography>
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange} 
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab label="Export Settings" />
+          <Tab label="Preview" />
+        </Tabs>
 
-        <Box mt={3}>
-          <Typography variant="subtitle1" gutterBottom>
-            Export Format
+        <TabPanel value={tabValue} index={0}>
+          <Typography variant="subtitle2" gutterBottom>
+            Export {vulnerabilities.length} vulnerabilities
           </Typography>
-          <FormControl component="fieldset">
-            <RadioGroup
-              row
-              name="export-format"
-              value={exportFormat}
-              onChange={handleFormatChange}
-            >
-              <FormControlLabel value="csv" control={<Radio />} label="CSV" />
-              <FormControlLabel value="json" control={<Radio />} label="JSON" />
-              <FormControlLabel value="pdf" control={<Radio />} label="PDF" disabled />
-            </RadioGroup>
-          </FormControl>
-        </Box>
 
-        <Divider sx={{ my: 2 }} />
-
-        <Box mt={2}>
-          <Typography variant="subtitle1" gutterBottom>
-            Fields to Export
-          </Typography>
-          {selectedFields.length === 0 && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              Please select at least one field to export
-            </Alert>
-          )}
-          <FormGroup>
-            <Box display="grid" gridTemplateColumns="1fr 1fr" gap={1}>
-              {Object.entries(fieldLabels).map(([field, label]) => (
-                <FormControlLabel
-                  key={field}
-                  control={
-                    <Checkbox
-                      checked={selectedFields.includes(field)}
-                      onChange={() => handleFieldToggle(field)}
-                    />
-                  }
-                  label={label}
+          <Box mt={3}>
+            <Typography variant="subtitle1" gutterBottom>
+              Export Format
+            </Typography>
+            <FormControl component="fieldset">
+              <RadioGroup
+                row
+                name="export-format"
+                value={exportFormat}
+                onChange={handleFormatChange}
+              >
+                <FormControlLabel 
+                  value="csv" 
+                  control={<Radio />} 
+                  label={
+                    <Box display="flex" alignItems="center">
+                      <TableChartIcon sx={{ mr: 0.5, fontSize: 18 }} />
+                      CSV
+                    </Box>
+                  } 
                 />
-              ))}
+                <FormControlLabel 
+                  value="json" 
+                  control={<Radio />} 
+                  label={
+                    <Box display="flex" alignItems="center">
+                      <CodeIcon sx={{ mr: 0.5, fontSize: 18 }} />
+                      JSON
+                    </Box>
+                  } 
+                />
+                <FormControlLabel 
+                  value="pdf" 
+                  control={<Radio />} 
+                  label={
+                    <Box display="flex" alignItems="center">
+                      <PictureAsPdfIcon sx={{ mr: 0.5, fontSize: 18 }} />
+                      PDF
+                    </Box>
+                  } 
+                  disabled 
+                />
+              </RadioGroup>
+            </FormControl>
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          <Box mt={2}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+              <Typography variant="subtitle1">
+                Fields to Export
+              </Typography>
+              <Box>
+                <Button size="small" onClick={handleSelectAll}>Select All</Button>
+                <Button size="small" onClick={handleSelectNone}>Clear</Button>
+              </Box>
             </Box>
-          </FormGroup>
-        </Box>
+            
+            {selectedFields.length === 0 && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Please select at least one field to export
+              </Alert>
+            )}
+            
+            <FormGroup>
+              <Box 
+                display="grid" 
+                gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }} 
+                gap={1}
+              >
+                {Object.entries(fieldLabels).map(([field, label]) => (
+                  <FormControlLabel
+                    key={field}
+                    control={
+                      <Checkbox
+                        checked={selectedFields.includes(field)}
+                        onChange={() => handleFieldToggle(field)}
+                        size="small"
+                      />
+                    }
+                    label={label}
+                  />
+                ))}
+              </Box>
+            </FormGroup>
+          </Box>
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={1}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="subtitle1">
+              {getFormatIcon()}
+              Preview ({exportFormat.toUpperCase()})
+            </Typography>
+            <Tooltip title="Copy to clipboard">
+              <IconButton onClick={copyToClipboard} size="small">
+                <FileCopyIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          
+          {selectedFields.length === 0 ? (
+            <Alert severity="warning">
+              No fields selected for preview
+            </Alert>
+          ) : (
+            <Paper 
+              variant="outlined" 
+              sx={{ 
+                p: 2, 
+                maxHeight: 300, 
+                overflow: 'auto',
+                fontFamily: 'monospace',
+                fontSize: '0.8rem',
+                whiteSpace: 'pre-wrap',
+                bgcolor: alpha(theme.palette.background.default, 0.5)
+              }}
+            >
+              {previewData}
+            </Paper>
+          )}
+          
+          <Box mt={2}>
+            <Typography variant="body2" color="text.secondary">
+              Showing preview of first 3 items. Full export will include all {vulnerabilities.length} vulnerabilities.
+            </Typography>
+          </Box>
+        </TabPanel>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ px: 3, py: 2 }}>
         <Button onClick={onClose}>Cancel</Button>
         <Button 
           variant="contained" 
@@ -211,7 +430,7 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ open, onClose, vulnerabilit
           disabled={selectedFields.length === 0}
           startIcon={<GetAppIcon />}
         >
-          Export
+          Export {vulnerabilities.length} Items
         </Button>
       </DialogActions>
     </Dialog>
