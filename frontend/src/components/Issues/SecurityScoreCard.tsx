@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -8,9 +8,16 @@ import {
   alpha,
   CircularProgress,
   Tooltip,
-  IconButton
+  IconButton,
+  Chip,
+  LinearProgress,
+  Divider,
+  ButtonGroup,
+  Button
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import { VulnerabilitySummary } from '../../types/vulnerability.types';
 
 interface SecurityScoreCardProps {
@@ -20,6 +27,7 @@ interface SecurityScoreCardProps {
 
 const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ summary, isLoading = false }) => {
   const theme = useTheme();
+  const [timeRange, setTimeRange] = useState<'weekly' | 'monthly' | 'quarterly'>('weekly');
   
   // Calculate security score based on vulnerability summary
   // This is a simple calculation - in a real app this would be more sophisticated
@@ -65,6 +73,30 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ summary, isLoadin
   
   const scoreColor = getScoreColor(securityScore);
   
+  // Calculate previous score (mock for demo)
+  const previousScore = securityScore - (Math.random() > 0.5 ? 3 : -4);
+  const scoreChange = securityScore - previousScore;
+  
+  const handleTimeRangeChange = (range: 'weekly' | 'monthly' | 'quarterly') => {
+    setTimeRange(range);
+  };
+  
+  // Get grade based on score
+  const getGrade = (score: number) => {
+    if (score >= 95) return 'A+';
+    if (score >= 90) return 'A';
+    if (score >= 85) return 'A-';
+    if (score >= 80) return 'B+';
+    if (score >= 75) return 'B';
+    if (score >= 70) return 'B-';
+    if (score >= 65) return 'C+';
+    if (score >= 60) return 'C';
+    if (score >= 55) return 'C-';
+    if (score >= 50) return 'D+';
+    if (score >= 40) return 'D';
+    return 'F';
+  };
+  
   return (
     <Card sx={{ 
       borderRadius: 2, 
@@ -76,13 +108,46 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ summary, isLoadin
       flexDirection: 'column'
     }}>
       <CardContent sx={{ p: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ p: 2, bgcolor: (theme) => alpha(theme.palette.primary.main, 0.05), display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="subtitle1" fontWeight="medium">Security Score</Typography>
-          <Tooltip title="Security score is calculated based on the number and severity of vulnerabilities. Higher is better.">
-            <IconButton size="small">
-              <InfoOutlinedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+        <Box sx={{ 
+          p: 2, 
+          bgcolor: (theme) => alpha(theme.palette.primary.main, 0.05), 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}>
+          <Box display="flex" alignItems="center">
+            <Typography variant="subtitle1" fontWeight="medium">Security Score</Typography>
+            <Tooltip title="Security score is calculated based on the number and severity of vulnerabilities. Higher is better.">
+              <IconButton size="small" sx={{ ml: 0.5 }}>
+                <InfoOutlinedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          
+          <Box>
+            <ButtonGroup size="small" variant="outlined" aria-label="time range">
+              <Button 
+                onClick={() => handleTimeRangeChange('weekly')}
+                variant={timeRange === 'weekly' ? 'contained' : 'outlined'}
+              >
+                Weekly
+              </Button>
+              <Button 
+                onClick={() => handleTimeRangeChange('monthly')}
+                variant={timeRange === 'monthly' ? 'contained' : 'outlined'}
+              >
+                Monthly
+              </Button>
+              <Button 
+                onClick={() => handleTimeRangeChange('quarterly')}
+                variant={timeRange === 'quarterly' ? 'contained' : 'outlined'}
+              >
+                Quarterly
+              </Button>
+            </ButtonGroup>
+          </Box>
         </Box>
         
         <Box sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -117,6 +182,7 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ summary, isLoadin
                     right: 0,
                     position: 'absolute',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -129,26 +195,89 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ summary, isLoadin
                   >
                     {securityScore}
                   </Typography>
+                  <Typography variant="caption" fontWeight="bold" fontSize={16}>
+                    {getGrade(securityScore)}
+                  </Typography>
                 </Box>
               </Box>
               
-              <Typography variant="body1" fontWeight="medium" textAlign="center">
-                {securityScore >= 90 && 'Excellent'}
-                {securityScore >= 70 && securityScore < 90 && 'Good'}
-                {securityScore >= 50 && securityScore < 70 && 'Fair'}
-                {securityScore >= 30 && securityScore < 50 && 'Poor'}
-                {securityScore < 30 && 'Critical'}
-              </Typography>
+              <Box display="flex" alignItems="center" mb={1}>
+                <Typography variant="body1" fontWeight="medium" textAlign="center" mr={1}>
+                  {securityScore >= 90 && 'Excellent'}
+                  {securityScore >= 70 && securityScore < 90 && 'Good'}
+                  {securityScore >= 50 && securityScore < 70 && 'Fair'}
+                  {securityScore >= 30 && securityScore < 50 && 'Poor'}
+                  {securityScore < 30 && 'Critical'}
+                </Typography>
+                
+                {scoreChange !== 0 && (
+                  <Chip 
+                    icon={scoreChange > 0 ? <TrendingUpIcon /> : <TrendingDownIcon />}
+                    label={`${scoreChange > 0 ? '+' : ''}${scoreChange}%`} 
+                    size="small"
+                    color={scoreChange > 0 ? "success" : "error"}
+                  />
+                )}
+              </Box>
               
-              <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mt: 1 }}>
+              <Typography variant="body2" color="text.secondary" textAlign="center">
                 {summary.fixed} of {summary.total} issues fixed
               </Typography>
+              
+              <Box sx={{ width: '100%', mt: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Critical Issues
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {summary.critical} / {summary.total}
+                  </Typography>
+                </Box>
+                <LinearProgress 
+                  variant="determinate" 
+                  value={summary.total ? (summary.critical / summary.total) * 100 : 0} 
+                  color="error"
+                  sx={{ mb: 2, height: 6, borderRadius: 3 }}
+                />
+                
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    High Issues
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {summary.high} / {summary.total}
+                  </Typography>
+                </Box>
+                <LinearProgress 
+                  variant="determinate" 
+                  value={summary.total ? (summary.high / summary.total) * 100 : 0} 
+                  color="warning"
+                  sx={{ mb: 2, height: 6, borderRadius: 3 }}
+                />
+                
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Medium & Low Issues
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {summary.medium + summary.low} / {summary.total}
+                  </Typography>
+                </Box>
+                <LinearProgress 
+                  variant="determinate" 
+                  value={summary.total ? ((summary.medium + summary.low) / summary.total) * 100 : 0} 
+                  color="info"
+                  sx={{ height: 6, borderRadius: 3 }}
+                />
+              </Box>
             </>
           )}
         </Box>
         
+        <Divider />
+        
         <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" gutterBottom>
             Recommendations:
           </Typography>
           <Typography variant="body2" fontWeight="medium" color={summary.critical > 0 ? 'error.main' : 'text.primary'}>
@@ -156,6 +285,12 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ summary, isLoadin
               ? `Address ${summary.critical} critical vulnerabilities`
               : 'No critical vulnerabilities'}
           </Typography>
+          
+          {summary.high > 0 && (
+            <Typography variant="body2" fontWeight="medium" color="warning.main" mt={1}>
+              Prioritize fixing {summary.high} high severity issues
+            </Typography>
+          )}
         </Box>
       </CardContent>
     </Card>
