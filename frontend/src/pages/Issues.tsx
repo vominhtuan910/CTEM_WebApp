@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState} from 'react';
 import { 
   Container, 
   Typography, 
   Box, 
   Tabs, 
   Tab, 
-  Paper,
   Button,
   Card,
   CardContent,
@@ -15,8 +14,6 @@ import {
   useMediaQuery,
   IconButton,
   Tooltip,
-  Divider,
-  Grid,
   Fade,
   CircularProgress
 } from '@mui/material';
@@ -28,13 +25,11 @@ import DownloadIcon from '@mui/icons-material/Download';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import DashboardIcon from '@mui/icons-material/Dashboard';
 import ShieldIcon from '@mui/icons-material/Shield';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import SettingsIcon from '@mui/icons-material/Settings';
 
 import VulnerabilityTable from '../components/Issues/Vulnerability/VulnerabilityTable';
-import ScanButton from '../components/Issues/ScanButton';
 import TrendChart from '../components/Issues/TrendChart';
 import SecurityScoreCard from '../components/Issues/SecurityScoreCard';
 import useVulnerabilityData from '../hooks/useVulnerabilityData';
@@ -80,10 +75,37 @@ const cardStyles = {
   }
 };
 
+// Scan Button component
+const ScanButton: React.FC<{ onScanComplete: (success: boolean, data?: any) => void }> = ({ onScanComplete }) => {
+  const [isScanning, setIsScanning] = useState(false);
+  
+  const handleScan = () => {
+    setIsScanning(true);
+    
+    // Simulate scanning process
+    setTimeout(() => {
+      setIsScanning(false);
+      onScanComplete(true, { scanDate: new Date() });
+    }, 2000);
+  };
+  
+  return (
+    <Button
+      variant="contained"
+      color="primary"
+      startIcon={isScanning ? <CircularProgress size={20} color="inherit" /> : <SecurityIcon />}
+      onClick={handleScan}
+      disabled={isScanning}
+      sx={{ borderRadius: 2 }}
+    >
+      {isScanning ? 'Scanning...' : 'Scan for Vulnerabilities'}
+    </Button>
+  );
+};
+
 const Issues: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const [tabValue, setTabValue] = useState(0);
   const [lastScanDate, setLastScanDate] = useState<string | null>(null);
   
@@ -224,14 +246,14 @@ const Issues: React.FC = () => {
       </Box>
 
       {/* Analytics Section */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={8}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, mb: 4 }}>
+        <Box sx={{ flex: '1 1 66%' }}>
           <TrendChart data={trends} isLoading={isRefreshing} />
-        </Grid>
-        <Grid item xs={12} md={4}>
+        </Box>
+        <Box sx={{ flex: '1 1 33%' }}>
           <SecurityScoreCard summary={summary} isLoading={isRefreshing} />
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Summary Cards */}
       <Box 
