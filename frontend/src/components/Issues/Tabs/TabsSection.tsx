@@ -18,9 +18,9 @@ import {
   NotificationsActiveOutlined,
   AssessmentOutlined,
 } from "@mui/icons-material";
-import VulnerabilityTable from "./Vulnerability/VulnerabilityTable";
-import ScanButton from "./ScanButton";
-import RiskAssessmentPanel from "./RiskAssessmentPanel";
+import VulnerabilityTable from "../Vulnerability/VulnerabilityTable";
+import ScanButton from "../Header/ScanButton";
+import RiskAssessmentPanel from "../Summary/RiskAssessmentPanel";
 
 interface TabPanelProps {
   children?: React.ReactNode;

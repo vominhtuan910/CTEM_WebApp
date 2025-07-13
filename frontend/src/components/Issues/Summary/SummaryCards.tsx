@@ -14,7 +14,7 @@ import {
   WarningOutlined,
   BugReportOutlined,
 } from "@mui/icons-material";
-import { VulnerabilitySummary } from "../../types/vulnerability.types";
+import { VulnerabilitySummary } from "../../../types/vulnerability.types";
 
 interface SummaryCardsProps {
   summary: VulnerabilitySummary;

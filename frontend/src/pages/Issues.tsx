@@ -3,13 +3,13 @@ import { Container, Snackbar, Alert } from "@mui/material";
 import useVulnerabilityData from "../hooks/useVulnerabilityData";
 
 // Import new components
-import IssueHeader from "../components/Issues/IssueHeader";
-import SearchFilterBar from "../components/Issues/SearchFilterBar";
-import SummaryCards from "../components/Issues/SummaryCards";
-import TabsSection from "../components/Issues/TabsSection";
-import HelpSection from "../components/Issues/HelpSection";
-import KeyboardShortcutsDialog from "../components/Issues/KeyboardShortcutsDialog";
-import ExportDialog from "../components/Issues/ExportDialog";
+import IssueHeader from "../components/Issues/Header/IssueHeader";
+import SearchFilterBar from "../components/Issues/Filters/SearchFilterBar";
+import SummaryCards from "../components/Issues/Summary/SummaryCards";
+import TabsSection from "../components/Issues/Tabs/TabsSection";
+import HelpSection from "../components/Issues/Tabs/HelpSection";
+import KeyboardShortcutsDialog from "../components/Issues/Dialogs/KeyboardShortcutsDialog";
+import ExportDialog from "../components/Issues/Dialogs/ExportDialog";
 
 const Issues: React.FC = () => {
   const [lastScanDate, setLastScanDate] = useState<string | null>(null);
@@ -24,7 +24,7 @@ const Issues: React.FC = () => {
   >("success");
 
   // Use the hook to get vulnerability data
-  const { summary, refreshData, isRefreshing, trends } = useVulnerabilityData();
+  const { summary, refreshData, isRefreshing } = useVulnerabilityData();
 
   const handleScanComplete = (success: boolean, data?: any) => {
     if (success && data) {
