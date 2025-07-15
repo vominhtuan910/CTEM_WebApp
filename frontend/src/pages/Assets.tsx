@@ -8,7 +8,6 @@ import {
   Button,
   CircularProgress,
   Container,
-  alpha,
 } from "@mui/material";
 import {
   GridView,
@@ -142,7 +141,7 @@ const Assets = () => {
             fontWeight: 600,
           }}
         >
-          Assets
+          Assets Management
         </Typography>
         <Box sx={{ display: "flex", gap: 2 }}>
           <Button

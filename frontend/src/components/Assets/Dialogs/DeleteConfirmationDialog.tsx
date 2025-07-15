@@ -14,6 +14,7 @@ import {
 } from "@mui/icons-material";
 import { Asset } from "../../../types/asset.types";
 import { dialogStyles } from "../../../utils/assets/assetStyles";
+import { alpha } from "@mui/material/styles";
 
 interface DeleteConfirmationDialogProps {
   open: boolean;
@@ -36,16 +37,32 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="sm"
-      fullWidth
+      maxWidth="xs"
+      fullWidth={false}
       slotProps={{
         paper: {
-          sx: dialogStyles.paper,
+          sx: {
+            ...dialogStyles.paper,
+            width: "auto",
+            minWidth: "320px",
+          },
         },
       }}
     >
-      <DialogTitle sx={dialogStyles.title}>
-        <Typography variant="h6">Delete Asset</Typography>
+      <DialogTitle
+        sx={{
+          ...dialogStyles.title,
+          py: 1,
+          px: 2,
+          bgcolor: (theme) => alpha(theme.palette.info.main, 0.15),
+          borderBottom: "1px solid",
+          borderColor: (theme) => alpha(theme.palette.info.main, 0.25),
+          color: "info.dark",
+        }}
+      >
+        <Typography variant="h6" color="info.dark">
+          Delete asset ?
+        </Typography>
         <IconButton
           onClick={onClose}
           size="small"
@@ -54,11 +71,15 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
-      <DialogContent sx={dialogStyles.content}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-          <WarningIcon color="error" sx={{ fontSize: 40 }} />
+      <DialogContent
+        sx={{ ...dialogStyles.content, "& .MuiBox-root": { p: 2 } }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+          <WarningIcon color="error" sx={{ fontSize: 24, mt: 1 }} />
           <Box>
-            <Typography variant="h6">Confirm Deletion</Typography>
+            <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+              Confirm Deletion
+            </Typography>
             <Typography variant="body2" color="text.secondary">
               Are you sure you want to delete {asset.hostname}? This action
               cannot be undone.
@@ -66,12 +87,13 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
           </Box>
         </Box>
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 3 }}>
+      <DialogActions sx={{ px: 2, py: 1.5 }}>
         <Button
           onClick={onClose}
           variant="outlined"
           disabled={isDeleting}
-          sx={{ borderRadius: 2, minWidth: 100 }}
+          sx={{ borderRadius: 2, minWidth: 70, px: 1.5 }}
+          size="small"
         >
           Cancel
         </Button>
@@ -80,7 +102,8 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
           variant="contained"
           color="error"
           disabled={isDeleting}
-          sx={{ borderRadius: 2, minWidth: 100 }}
+          sx={{ borderRadius: 2, minWidth: 70, px: 1.5 }}
+          size="small"
         >
           {isDeleting ? "Deleting..." : "Delete"}
         </Button>

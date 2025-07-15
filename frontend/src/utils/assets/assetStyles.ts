@@ -67,15 +67,20 @@ export const sectionStyles = {
 export const cardStyles = {
   gridCard: {
     position: "relative",
-    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+    transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
     borderRadius: 3,
     border: "1px solid",
     borderColor: "divider",
     overflow: "hidden",
     cursor: "pointer",
     "&:hover": {
-      transform: "translateY(-4px)",
-      boxShadow: "0 8px 16px rgba(0, 0, 0, 0.1)",
+      transform: "translateY(-8px)",
+      boxShadow: (theme: Theme) =>
+        `0 12px 24px ${alpha(
+          theme.palette.primary.main,
+          0.15
+        )}, 0 4px 8px rgba(0, 0, 0, 0.1)`,
+      borderColor: (theme: Theme) => alpha(theme.palette.primary.main, 0.3),
       "& .asset-actions": {
         opacity: 1,
       },
@@ -83,15 +88,20 @@ export const cardStyles = {
   },
   listCard: {
     position: "relative",
-    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+    transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
     borderRadius: 2,
     border: "1px solid",
     borderColor: "divider",
     overflow: "hidden",
     cursor: "pointer",
     "&:hover": {
-      transform: "translateY(-2px)",
-      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.08)",
+      transform: "translateY(-4px)",
+      boxShadow: (theme: Theme) =>
+        `0 8px 16px ${alpha(
+          theme.palette.primary.main,
+          0.15
+        )}, 0 2px 4px rgba(0, 0, 0, 0.1)`,
+      borderColor: (theme: Theme) => alpha(theme.palette.primary.main, 0.3),
       "& .asset-actions": {
         opacity: 1,
       },
@@ -110,7 +120,11 @@ type ColorType =
 
 export const actionButtonStyle = (color: ColorType) => ({
   color: `${color}.main`,
+  transition: "all 0.2s ease",
   "&:hover": {
-    backgroundColor: (theme: Theme) => alpha(theme.palette[color].main, 0.1),
+    backgroundColor: (theme: Theme) => alpha(theme.palette[color].main, 0.15),
+    transform: "scale(1.05)",
+    boxShadow: (theme: Theme) =>
+      `0 2px 8px ${alpha(theme.palette[color].main, 0.25)}`,
   },
 });

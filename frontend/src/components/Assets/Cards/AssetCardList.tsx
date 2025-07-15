@@ -39,7 +39,10 @@ import {
   SiElementary,
   SiDebian,
 } from "react-icons/si";
-import { cardStyles } from "../../../utils/assets/assetStyles";
+import {
+  cardStyles,
+  actionButtonStyle,
+} from "../../../utils/assets/assetStyles";
 
 // Define PaletteColor type
 type PaletteColor =
@@ -370,13 +373,7 @@ const AssetCardList: React.FC<AssetCardListProps> = ({
                     onEdit(asset);
                   }}
                   size="small"
-                  sx={{
-                    color: "info.main",
-                    "&:hover": {
-                      backgroundColor: (theme) =>
-                        alpha(theme.palette.info.main, 0.1),
-                    },
-                  }}
+                  sx={actionButtonStyle("info")}
                 >
                   <EditIcon fontSize="small" />
                 </IconButton>
@@ -388,13 +385,7 @@ const AssetCardList: React.FC<AssetCardListProps> = ({
                     onDelete(asset);
                   }}
                   size="small"
-                  sx={{
-                    color: "error.main",
-                    "&:hover": {
-                      backgroundColor: (theme) =>
-                        alpha(theme.palette.error.main, 0.1),
-                    },
-                  }}
+                  sx={actionButtonStyle("error")}
                 >
                   <DeleteIcon fontSize="small" />
                 </IconButton>
