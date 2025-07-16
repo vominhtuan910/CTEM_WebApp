@@ -1,16 +1,8 @@
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  IconButton,
-  Typography,
-  Box,
-  Card,
-} from "@mui/material";
-import { Close as CloseIcon } from "@mui/icons-material";
+import { Typography, Box, Card } from "@mui/material";
 import { Asset } from "../../../types/asset.types";
 import AssetForm from "../Forms/AssetForm";
-import { dialogStyles, sectionStyles } from "../../../utils/assets/assetStyles";
+import BaseDialog from "../../common/BaseDialog";
+import { sectionStyles } from "../../../utils/assets/assetStyles";
 
 interface AssetFormDialogProps {
   open: boolean;
@@ -31,75 +23,62 @@ const AssetFormDialog: React.FC<AssetFormDialogProps> = ({
 }) => {
   const isAdd = type === "add";
 
-  return (
-    <Dialog
-      open={open}
-      onClose={() => !isSubmitting && onClose()}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{
-        sx: dialogStyles.paper,
-      }}
-      TransitionProps={{
-        style: {
-          transitionDuration: "300ms",
-          transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-        },
-      }}
-    >
-      <DialogTitle sx={dialogStyles.title}>
-        {isAdd ? (
-          <Typography variant="h6">Add New Asset</Typography>
-        ) : (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="h6">Edit Asset</Typography>
-            <Typography
-              variant="subtitle2"
-              color="primary.main"
-              sx={{ fontWeight: 500 }}
-            >
-              {asset?.hostname}
-            </Typography>
-          </Box>
-        )}
-        <IconButton
-          onClick={() => !isSubmitting && onClose()}
-          size="small"
-          sx={dialogStyles.closeButton}
-        >
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent sx={dialogStyles.content}>
-        <Box>
-          {isAdd ? (
-            // Add asset form
-            <AssetForm
-              onSubmit={onSubmit}
-              onCancel={onClose}
-              isSubmitting={isSubmitting}
-            />
-          ) : (
-            // Edit asset form with section card
-            asset && (
-              <Card sx={sectionStyles.card}>
-                <Typography variant="subtitle1" sx={sectionStyles.title}>
-                  Basic Information
-                </Typography>
-                <Box sx={sectionStyles.content}>
-                  <AssetForm
-                    asset={asset}
-                    onSubmit={onSubmit}
-                    onCancel={onClose}
-                    isSubmitting={isSubmitting}
-                  />
-                </Box>
-              </Card>
-            )
-          )}
+  // Title for the dialog
+  const dialogTitle = isAdd ? "Add New Asset" : "Edit Asset";
+
+  // Subtitle/prelabel for the dialog
+  const preLabel = !isAdd && asset ? asset.hostname : undefined;
+
+  // Message body
+  const body = isAdd
+    ? "Enter the details for the new asset."
+    : "Update the asset information.";
+
+  // The form content that will be displayed in the dialog
+  const formContent = isAdd ? (
+    <AssetForm
+      onSubmit={onSubmit}
+      onCancel={onClose}
+      isSubmitting={isSubmitting}
+    />
+  ) : (
+    asset && (
+      <Card sx={sectionStyles.card}>
+        <Typography variant="subtitle1" sx={sectionStyles.title}>
+          Basic Information
+        </Typography>
+        <Box sx={sectionStyles.content}>
+          <AssetForm
+            asset={asset}
+            onSubmit={onSubmit}
+            onCancel={onClose}
+            isSubmitting={isSubmitting}
+          />
         </Box>
-      </DialogContent>
-    </Dialog>
+      </Card>
+    )
+  );
+
+  // Create dummy onPrimary and onCancel handlers since we're using custom form buttons
+  const handlePrimary = () => {
+    // This is handled by the form's submit button
+  };
+
+  return (
+    <BaseDialog
+      isOpen={open}
+      title={dialogTitle}
+      body={body}
+      preLabel={preLabel}
+      primaryLabel="Save"
+      secondaryLabel="Cancel"
+      onPrimary={handlePrimary}
+      onCancel={() => !isSubmitting && onClose()}
+      closeOnBackdropClick={!isSubmitting}
+      closeOnEsc={!isSubmitting}
+    >
+      {formContent}
+    </BaseDialog>
   );
 };
 

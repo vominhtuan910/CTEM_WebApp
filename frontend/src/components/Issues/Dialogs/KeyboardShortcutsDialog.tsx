@@ -1,15 +1,5 @@
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Box,
-  Typography,
-  Chip,
-  alpha,
-} from "@mui/material";
-import { KeyboardOutlined } from "@mui/icons-material";
+import { Box, Typography, Chip, alpha } from "@mui/material";
+import BaseDialog from "../../common/BaseDialog";
 
 interface KeyboardShortcutsDialogProps {
   open: boolean;
@@ -29,52 +19,53 @@ const KeyboardShortcutsDialog: React.FC<KeyboardShortcutsDialogProps> = ({
     { key: "/", description: "Show keyboard shortcuts" },
   ];
 
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>
-        <Box display="flex" alignItems="center">
-          <KeyboardOutlined sx={{ mr: 1 }} />
-          Keyboard Shortcuts
-        </Box>
-      </DialogTitle>
-      <DialogContent dividers>
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="body2" color="text.secondary" paragraph>
-            These shortcuts are available throughout the Issues page to help you
-            work more efficiently.
-          </Typography>
+  // Create impact points for the dialog (these will be the shortcuts)
+  const impactPoints = shortcuts.map(
+    (shortcut) => `${shortcut.key}: ${shortcut.description}`
+  );
 
-          {shortcuts.map((shortcut, index) => (
-            <Box
-              key={index}
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                py: 1,
-                borderBottom:
-                  index < shortcuts.length - 1 ? "1px solid" : "none",
-                borderColor: "divider",
-              }}
-            >
-              <Typography variant="body2">{shortcut.description}</Typography>
-              <Chip
-                label={shortcut.key}
-                size="small"
-                sx={{
-                  fontFamily: "monospace",
-                  fontWeight: "bold",
-                  bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
-                }}
-              />
-            </Box>
-          ))}
+  // Custom content for displaying shortcuts in a more visually appealing way
+  const shortcutsContent = (
+    <Box sx={{ mt: 1 }}>
+      {shortcuts.map((shortcut, index) => (
+        <Box
+          key={index}
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            py: 1,
+            borderBottom: index < shortcuts.length - 1 ? "1px solid" : "none",
+            borderColor: "divider",
+          }}
+        >
+          <Typography variant="body2">{shortcut.description}</Typography>
+          <Chip
+            label={shortcut.key}
+            size="small"
+            sx={{
+              fontFamily: "monospace",
+              fontWeight: "bold",
+              bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
+            }}
+          />
         </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Close</Button>
-      </DialogActions>
-    </Dialog>
+      ))}
+    </Box>
+  );
+
+  return (
+    <BaseDialog
+      isOpen={open}
+      onCancel={onClose}
+      title="Keyboard Shortcuts"
+      body="These shortcuts are available throughout the Issues page to help you work more efficiently."
+      primaryLabel="Close"
+      onPrimary={onClose}
+      preLabel="Productivity"
+    >
+      {shortcutsContent}
+    </BaseDialog>
   );
 };
 

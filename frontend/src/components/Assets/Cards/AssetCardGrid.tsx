@@ -345,7 +345,9 @@ const AssetCardGrid: React.FC<AssetCardGridProps> = ({
                 sx={{ borderRadius: 1 }}
               />
             </Tooltip>
-            <Tooltip title={`${asset.applications.length} Applications`}>
+            <Tooltip
+              title={`${asset.applications.length} applications installed`}
+            >
               <Chip
                 icon={<AppsIcon fontSize="small" />}
                 label={asset.applications.length}

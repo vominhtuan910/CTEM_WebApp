@@ -1,23 +1,25 @@
 import { useState } from "react";
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  IconButton,
-  Typography,
   Box,
   Button,
+  Tabs,
+  Tab,
+  Divider,
+  useTheme,
+  alpha,
 } from "@mui/material";
 import {
-  Close as CloseIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   FileDownload as DownloadIcon,
+  Dashboard as DashboardIcon,
+  Memory as MemoryIcon,
+  Apps as AppsIcon,
 } from "@mui/icons-material";
 import { Asset } from "../../../types/asset.types";
 import AssetDetails from "../Details/AssetDetails";
 import DeleteConfirmationDialog from "./DeleteConfirmationDialog";
-import { dialogStyles } from "../../../utils/assets/assetStyles";
+import BaseDialog from "../../common/BaseDialog";
 
 interface AssetDetailsDialogProps {
   open: boolean;
@@ -28,6 +30,29 @@ interface AssetDetailsDialogProps {
   onDelete: (asset: Asset) => void;
 }
 
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`asset-tabpanel-${index}`}
+      aria-labelledby={`asset-tab-${index}`}
+      {...other}
+      style={{ padding: "16px 0" }}
+    >
+      {value === index && children}
+    </div>
+  );
+}
+
 const AssetDetailsDialog: React.FC<AssetDetailsDialogProps> = ({
   open,
   asset,
@@ -36,9 +61,15 @@ const AssetDetailsDialog: React.FC<AssetDetailsDialogProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const theme = useTheme();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
 
   if (!asset) return null;
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
 
   const handleEditClick = () => {
     onClose();
@@ -55,88 +86,149 @@ const AssetDetailsDialog: React.FC<AssetDetailsDialogProps> = ({
     onDelete(asset);
   };
 
-  return (
+  // Create a title for the dialog
+  const dialogTitle = "Asset Details";
+
+  // Create a descriptive body text (optional since we're using custom content)
+  const body = `Details for ${asset.hostname}`;
+
+  // Create custom content for the dialog
+  const customContent = (
     <>
-      <Dialog
-        open={open}
-        onClose={onClose}
-        maxWidth="md"
-        fullWidth
-        slotProps={{
-          paper: {
-            sx: dialogStyles.paper,
-          },
-          backdrop: {
-            sx: {
-              transition: "background-color 300ms cubic-bezier(0.4, 0, 0.2, 1)",
-            },
-          },
-          root: {
-            sx: {
-              transition: "opacity 300ms cubic-bezier(0.4, 0, 0.2, 1)",
-            },
-          },
-        }}
+      <Box sx={{ borderBottom: 1, borderColor: "divider", px: 2, mt: 2 }}>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          variant="scrollable"
+          scrollButtons="auto"
+          aria-label="asset details tabs"
+        >
+          <Tab
+            icon={<DashboardIcon fontSize="small" />}
+            iconPosition="start"
+            label="Overview"
+            sx={{
+              minHeight: 48,
+              transition: "all 0.2s",
+              "&.Mui-selected": {
+                color: "primary.main",
+                fontWeight: "bold",
+              },
+            }}
+          />
+          <Tab
+            icon={<MemoryIcon fontSize="small" />}
+            iconPosition="start"
+            label="Services"
+            sx={{
+              minHeight: 48,
+              transition: "all 0.2s",
+              "&.Mui-selected": {
+                color: "primary.main",
+                fontWeight: "bold",
+              },
+            }}
+          />
+          <Tab
+            icon={<AppsIcon fontSize="small" />}
+            iconPosition="start"
+            label="Applications"
+            sx={{
+              minHeight: 48,
+              transition: "all 0.2s",
+              "&.Mui-selected": {
+                color: "primary.main",
+                fontWeight: "bold",
+              },
+            }}
+          />
+        </Tabs>
+      </Box>
+
+      <TabPanel value={tabValue} index={0}>
+        <AssetDetails
+          asset={asset}
+          onClose={onClose}
+          onExport={onExport}
+          view="overview"
+        />
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={1}>
+        <AssetDetails
+          asset={asset}
+          onClose={onClose}
+          onExport={onExport}
+          view="services"
+        />
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={2}>
+        <AssetDetails
+          asset={asset}
+          onClose={onClose}
+          onExport={onExport}
+          view="applications"
+        />
+      </TabPanel>
+
+      <Divider />
+      <Box
         sx={{
-          "& .MuiDialog-paper": {
-            transition: "transform 300ms cubic-bezier(0.4, 0, 0.2, 1)",
-          },
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 2,
+          p: 2,
+          bgcolor: (theme) => alpha(theme.palette.background.paper, 0.8),
         }}
       >
-        <DialogTitle sx={dialogStyles.title}>
-          <Typography variant="h6">Asset Details</Typography>
-          <IconButton
-            onClick={onClose}
-            size="small"
-            sx={dialogStyles.closeButton}
-          >
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent sx={dialogStyles.content}>
-          <AssetDetails asset={asset} onClose={onClose} onExport={onExport} />
+        <Button
+          startIcon={<EditIcon />}
+          onClick={handleEditClick}
+          variant="outlined"
+          color="primary"
+          size="small"
+        >
+          Edit
+        </Button>
+        <Button
+          startIcon={<DownloadIcon />}
+          onClick={() => onExport(asset)}
+          variant="outlined"
+          color="primary"
+          size="small"
+        >
+          Export
+        </Button>
+        <Button
+          startIcon={<DeleteIcon />}
+          onClick={handleDeleteClick}
+          variant="outlined"
+          color="error"
+          size="small"
+        >
+          Delete
+        </Button>
+      </Box>
+    </>
+  );
 
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: 2,
-              mt: 3,
-              pt: 3,
-              borderTop: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            <Button
-              variant="outlined"
-              color="primary"
-              startIcon={<EditIcon />}
-              onClick={handleEditClick}
-              sx={{ borderRadius: 2, minWidth: 120 }}
-            >
-              Edit
-            </Button>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={handleDeleteClick}
-              sx={{ borderRadius: 2, minWidth: 120 }}
-            >
-              Delete
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<DownloadIcon />}
-              onClick={() => onExport(asset)}
-              sx={{ borderRadius: 2, minWidth: 120 }}
-            >
-              Download
-            </Button>
-          </Box>
-        </DialogContent>
-      </Dialog>
+  // The AssetDetailsDialog doesn't really use the primary/secondary buttons from BaseDialog
+  // since it has its own action buttons in the content
+  return (
+    <>
+      <BaseDialog
+        isOpen={open}
+        title={dialogTitle}
+        body=""
+        primaryLabel="Close"
+        onPrimary={onClose}
+        onCancel={onClose}
+        preLabel={asset.hostname}
+        mode="default"
+      >
+        {customContent}
+      </BaseDialog>
 
       <DeleteConfirmationDialog
         open={deleteDialogOpen}

@@ -42,12 +42,14 @@ interface AssetDetailsProps {
   asset: Asset;
   onClose: () => void;
   onExport: (asset: Asset) => void;
+  view?: "overview" | "services" | "applications";
 }
 
 const AssetDetails: React.FC<AssetDetailsProps> = ({
   asset,
   onClose,
   onExport,
+  view = "overview",
 }) => {
   const getOsIcon = () => {
     const osName = asset.os.name.toLowerCase();
@@ -199,216 +201,335 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({
     return <FaQuestion size={iconSize} />;
   };
 
-  return (
-    <Box sx={{ maxWidth: "4xl", mx: "auto" }}>
-      {/* Header */}
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          mb: 3,
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Box
-            sx={{
-              color: "primary.main",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 45,
-              height: 45,
-              borderRadius: "50%",
-              backgroundColor: (theme) => theme.palette.primary.light + "20",
-              p: 1,
-            }}
-          >
-            {getOsIcon()}
-          </Box>
+  // Render different views based on the 'view' prop
+  const renderContent = () => {
+    switch (view) {
+      case "services":
+        return (
           <Box>
-            <Typography variant="h4">{asset.hostname}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Last scan: {new Date(asset.lastScan).toLocaleString()}
+            <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+              Running Services
             </Typography>
-          </Box>
-        </Box>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Tooltip title="Export Asset Data">
-            <IconButton
-              onClick={() => onExport(asset)}
+            <TableContainer
+              component={Paper}
               sx={{
-                color: "success.main",
-                "&:hover": {
-                  backgroundColor: "success.light",
-                },
+                mb: 3,
+                boxShadow: "none",
+                border: "1px solid",
+                borderColor: "divider",
               }}
             >
-              <ExportIcon />
-            </IconButton>
-          </Tooltip>
-          <Chip
-            label={asset.status}
-            color={asset.status === "active" ? "success" : "default"}
-            size="small"
-          />
-        </Box>
-      </Box>
+              <Table size="small">
+                <TableHead sx={{ bgcolor: "grey.50" }}>
+                  <TableRow>
+                    <TableCell>Service Name</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Start Type</TableCell>
+                    <TableCell>PID</TableCell>
+                    <TableCell>Port</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {asset.services.map((service, idx) => (
+                    <TableRow key={idx} hover>
+                      <TableCell>
+                        {service.displayName || service.name}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={service.status}
+                          color={
+                            service.status === "running"
+                              ? "success"
+                              : service.status === "stopped"
+                              ? "error"
+                              : "default"
+                          }
+                          sx={{ minWidth: 75, fontSize: "0.75rem" }}
+                        />
+                      </TableCell>
+                      <TableCell>{service.startType}</TableCell>
+                      <TableCell>{service.pid || "N/A"}</TableCell>
+                      <TableCell>{service.port || "N/A"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        );
 
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-        {/* OS Information */}
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Operating System
-          </Typography>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: 2,
-            }}
-          >
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">
-                Name
-              </Typography>
-              <Typography>{asset.os.name}</Typography>
+      case "applications":
+        return (
+          <Box>
+            <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+              Installed Applications
+            </Typography>
+            <TableContainer
+              component={Paper}
+              sx={{
+                mb: 3,
+                boxShadow: "none",
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Table size="small">
+                <TableHead sx={{ bgcolor: "grey.50" }}>
+                  <TableRow>
+                    <TableCell>Application</TableCell>
+                    <TableCell>Version</TableCell>
+                    <TableCell>Publisher</TableCell>
+                    <TableCell>Install Date</TableCell>
+                    <TableCell>Size</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {asset.applications.map((app, idx) => (
+                    <TableRow key={idx} hover>
+                      <TableCell>{app.name}</TableCell>
+                      <TableCell>{app.version}</TableCell>
+                      <TableCell>{app.publisher}</TableCell>
+                      <TableCell>
+                        {new Date(app.installDate).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>{app.size || "Unknown"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        );
+
+      case "overview":
+      default:
+        return (
+          <Box sx={{ maxWidth: "4xl", mx: "auto" }}>
+            {/* Header */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                mb: 3,
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Box
+                  sx={{
+                    color: "primary.main",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 45,
+                    height: 45,
+                    borderRadius: "50%",
+                    backgroundColor: (theme) =>
+                      theme.palette.primary.light + "20",
+                    p: 1,
+                  }}
+                >
+                  {getOsIcon()}
+                </Box>
+                <Box>
+                  <Typography variant="h4">{asset.hostname}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Last scan: {new Date(asset.lastScan).toLocaleString()}
+                  </Typography>
+                </Box>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Tooltip title="Export Asset Data">
+                  <IconButton
+                    onClick={() => onExport(asset)}
+                    sx={{
+                      color: "success.main",
+                      "&:hover": {
+                        backgroundColor: "success.light",
+                      },
+                    }}
+                  >
+                    <ExportIcon />
+                  </IconButton>
+                </Tooltip>
+                <Chip
+                  label={asset.status}
+                  color={asset.status === "active" ? "success" : "default"}
+                  size="small"
+                />
+              </Box>
             </Box>
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">
-                Version
-              </Typography>
-              <Typography>{asset.os.version}</Typography>
+
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {/* OS Information */}
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Operating System
+                </Typography>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, 1fr)",
+                    gap: 2,
+                  }}
+                >
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Name
+                    </Typography>
+                    <Typography>{asset.os.name}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Version
+                    </Typography>
+                    <Typography>{asset.os.version}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Architecture
+                    </Typography>
+                    <Typography>{asset.os.architecture}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Build Number
+                    </Typography>
+                    <Typography>{asset.os.buildNumber}</Typography>
+                  </Box>
+                </Box>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Last Boot Time
+                  </Typography>
+                  <Typography>
+                    {new Date(asset.os.lastBootTime).toLocaleString()}
+                  </Typography>
+                </Box>
+              </Paper>
+
+              {/* Services */}
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Services
+                </Typography>
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Name</TableCell>
+                        <TableCell>Display Name</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Start Type</TableCell>
+                        <TableCell>PID</TableCell>
+                        <TableCell>Port</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {asset.services.map((service, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{service.name}</TableCell>
+                          <TableCell>{service.displayName}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={service.status}
+                              color={
+                                service.status === "running"
+                                  ? "success"
+                                  : "default"
+                              }
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>{service.startType}</TableCell>
+                          <TableCell>{service.pid || "-"}</TableCell>
+                          <TableCell>{service.port || "-"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+
+              {/* Applications */}
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Installed Applications
+                </Typography>
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Name</TableCell>
+                        <TableCell>Version</TableCell>
+                        <TableCell>Publisher</TableCell>
+                        <TableCell>Install Date</TableCell>
+                        <TableCell>Size</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {asset.applications.map((app, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{app.name}</TableCell>
+                          <TableCell>{app.version}</TableCell>
+                          <TableCell>{app.publisher}</TableCell>
+                          <TableCell>
+                            {new Date(app.installDate).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>{app.size || "-"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
             </Box>
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">
-                Architecture
-              </Typography>
-              <Typography>{asset.os.architecture}</Typography>
-            </Box>
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">
-                Build Number
-              </Typography>
-              <Typography>{asset.os.buildNumber}</Typography>
+
+            <Box
+              sx={{
+                mt: 6,
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 2,
+              }}
+            >
+              <Button
+                variant="contained"
+                onClick={onClose}
+                sx={{
+                  bgcolor: "primary.main",
+                  color: "white",
+                  "&:hover": {
+                    bgcolor: "primary.dark",
+                  },
+                }}
+              >
+                Close
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<ExportIcon />}
+                onClick={() => onExport(asset)}
+                sx={{
+                  bgcolor: "success.main",
+                  color: "white",
+                  "&:hover": {
+                    bgcolor: "success.dark",
+                  },
+                }}
+              >
+                Export Data
+              </Button>
             </Box>
           </Box>
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Last Boot Time
-            </Typography>
-            <Typography>
-              {new Date(asset.os.lastBootTime).toLocaleString()}
-            </Typography>
-          </Box>
-        </Paper>
+        );
+    }
+  };
 
-        {/* Services */}
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Services
-          </Typography>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Display Name</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Start Type</TableCell>
-                  <TableCell>PID</TableCell>
-                  <TableCell>Port</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {asset.services.map((service, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{service.name}</TableCell>
-                    <TableCell>{service.displayName}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={service.status}
-                        color={
-                          service.status === "running" ? "success" : "default"
-                        }
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{service.startType}</TableCell>
-                    <TableCell>{service.pid || "-"}</TableCell>
-                    <TableCell>{service.port || "-"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-
-        {/* Applications */}
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Installed Applications
-          </Typography>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Version</TableCell>
-                  <TableCell>Publisher</TableCell>
-                  <TableCell>Install Date</TableCell>
-                  <TableCell>Size</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {asset.applications.map((app, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{app.name}</TableCell>
-                    <TableCell>{app.version}</TableCell>
-                    <TableCell>{app.publisher}</TableCell>
-                    <TableCell>
-                      {new Date(app.installDate).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>{app.size || "-"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-      </Box>
-
-      <Box sx={{ mt: 6, display: "flex", justifyContent: "flex-end", gap: 2 }}>
-        <Button
-          variant="contained"
-          onClick={onClose}
-          sx={{
-            bgcolor: "primary.main",
-            color: "white",
-            "&:hover": {
-              bgcolor: "primary.dark",
-            },
-          }}
-        >
-          Close
-        </Button>
-        <Button
-          variant="contained"
-          startIcon={<ExportIcon />}
-          onClick={() => onExport(asset)}
-          sx={{
-            bgcolor: "success.main",
-            color: "white",
-            "&:hover": {
-              bgcolor: "success.dark",
-            },
-          }}
-        >
-          Export Data
-        </Button>
-      </Box>
-    </Box>
-  );
+  // Return the content based on the current view
+  return renderContent();
 };
 
 export default AssetDetails;

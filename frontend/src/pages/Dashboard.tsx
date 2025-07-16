@@ -5,17 +5,15 @@ import {
   ArrowPathIcon,
   ChartBarSquareIcon,
   ClipboardDocumentListIcon,
-} from '@heroicons/react/24/outline';
+} from "@heroicons/react/24/outline";
 
-import { useDashboardData } from '../hooks/useDashboardData';
-import {
-  HealthScoreCard,
-  ErrorsWatchList,
-  ThreatsSummaryCard,
-  MetricsChart,
-  DashboardSkeleton,
-  ErrorBoundary,
-} from '../components/Dashboard';
+import { useDashboardData } from "../hooks/useDashboardData";
+import HealthScoreCard from "../components/Dashboard/HealthScoreCard";
+import ErrorsWatchList from "../components/Dashboard/ErrorsWatchList";
+import ThreatsSummaryCard from "../components/Dashboard/ThreatsSummaryCard";
+import MetricsChart from "../components/Dashboard/MetricsChart";
+import DashboardSkeleton from "../components/Dashboard/DashboardSkeleton";
+import ErrorBoundary from "../components/Dashboard/ErrorBoundary";
 
 const Dashboard: React.FC = () => {
   const { data, isLoading, error, refetch } = useDashboardData();
@@ -33,21 +31,19 @@ const Dashboard: React.FC = () => {
           <div className="rounded-2xl bg-white p-8 shadow-xl border border-red-100">
             <div className="text-center">
               <div className="p-4 bg-red-100 rounded-full w-fit mx-auto mb-6">
-                <ShieldExclamationIcon 
-                  className="text-red-600" 
-                  style={{ fontSize: '2.5rem' }}
+                <ShieldExclamationIcon
+                  className="text-red-600"
+                  style={{ fontSize: "2.5rem" }}
                   aria-hidden="true"
                 />
               </div>
-              
+
               <h2 className="text-2xl font-bold text-slate-800 mb-3">
                 Failed to Load Dashboard
               </h2>
-              
-              <p className="text-slate-600 mb-6 leading-relaxed">
-                {error}
-              </p>
-              
+
+              <p className="text-slate-600 mb-6 leading-relaxed">{error}</p>
+
               <button
                 onClick={refetch}
                 className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-200 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
@@ -69,9 +65,9 @@ const Dashboard: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex items-center justify-center">
         <div className="text-center">
           <div className="p-6 bg-slate-100 rounded-full w-fit mx-auto mb-6">
-            <ShieldExclamationIcon 
-              className="text-slate-400" 
-              style={{ fontSize: '4rem' }}
+            <ShieldExclamationIcon
+              className="text-slate-400"
+              style={{ fontSize: "4rem" }}
             />
           </div>
           <h2 className="text-3xl font-bold text-slate-800 mb-3">
@@ -86,12 +82,14 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <ErrorBoundary onError={(error: Error) => console.error('Dashboard Error:', error)}>
+    <ErrorBoundary
+      onError={(error: Error) => console.error("Dashboard Error:", error)}
+    >
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         {/* Removed manual refresh button (auto-refresh elsewhere) */}
 
         {/* Health Score Section */}
-        <section 
+        <section
           className="mb-8 lg:mb-12"
           aria-labelledby="health-section-heading"
         >
@@ -100,18 +98,23 @@ const Dashboard: React.FC = () => {
               <ClipboardDocumentListIcon className="text-emerald-600 h-4 w-4" />
             </div>
             <div>
-              <h2 id="health-section-heading" className="text-2xl font-bold text-slate-800">
+              <h2
+                id="health-section-heading"
+                className="text-2xl font-bold text-slate-800"
+              >
                 Security Health Overview
               </h2>
-              <p className="text-slate-600">Monitor your security posture and trending issues</p>
+              <p className="text-slate-600">
+                Monitor your security posture and trending issues
+              </p>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
             <div className="lg:col-span-1">
               <HealthScoreCard healthScore={data.healthScore} />
             </div>
-            
+
             <div className="lg:col-span-2">
               <ErrorsWatchList errors={data.errorsToWatch} />
             </div>
@@ -119,7 +122,7 @@ const Dashboard: React.FC = () => {
         </section>
 
         {/* Threats Summary */}
-        <section 
+        <section
           className="mb-8 lg:mb-12"
           aria-labelledby="threats-section-heading"
         >
@@ -128,20 +131,25 @@ const Dashboard: React.FC = () => {
               <ShieldExclamationIcon className="text-red-600" />
             </div>
             <div>
-              <h2 id="threats-section-heading" className="text-2xl font-bold text-slate-800">
+              <h2
+                id="threats-section-heading"
+                className="text-2xl font-bold text-slate-800"
+              >
                 Threat Intelligence
               </h2>
-              <p className="text-slate-600">Recent threat detections and security incidents</p>
+              <p className="text-slate-600">
+                Recent threat detections and security incidents
+              </p>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
             <ThreatsSummaryCard
               title="Weekly Threat Analysis"
               summary={data.threatsSummary.week}
               period="week"
             />
-            
+
             <ThreatsSummaryCard
               title="Monthly Threat Trends"
               summary={data.threatsSummary.month}
@@ -151,7 +159,7 @@ const Dashboard: React.FC = () => {
         </section>
 
         {/* Analytics Charts */}
-        <section 
+        <section
           className="mb-8 lg:mb-12"
           aria-labelledby="analytics-section-heading"
         >
@@ -160,26 +168,31 @@ const Dashboard: React.FC = () => {
               <ChartBarSquareIcon className="text-violet-600" />
             </div>
             <div>
-              <h2 id="analytics-section-heading" className="text-2xl font-bold text-slate-800">
+              <h2
+                id="analytics-section-heading"
+                className="text-2xl font-bold text-slate-800"
+              >
                 Security Analytics
               </h2>
-              <p className="text-slate-600">Detailed breakdown of security events and patterns</p>
+              <p className="text-slate-600">
+                Detailed breakdown of security events and patterns
+              </p>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
             <MetricsChart
               title="Common Threats by Frequency"
               data={data.commonThreats}
               icon={ChartBarIcon}
             />
-            
+
             <MetricsChart
               title="Most Attacked Asset Types"
               data={data.attackedAssets}
               icon={ChartPieIcon}
             />
-            
+
             <MetricsChart
               title="Common Attack Methods"
               data={data.attackMethods}
@@ -194,9 +207,13 @@ const Dashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
               <div>
                 <div className="text-3xl font-bold text-slate-800 mb-1">
-                  {data.commonThreats.length + data.attackedAssets.length + data.attackMethods.length}
+                  {data.commonThreats.length +
+                    data.attackedAssets.length +
+                    data.attackMethods.length}
                 </div>
-                <div className="text-slate-600 font-medium">Security Metrics</div>
+                <div className="text-slate-600 font-medium">
+                  Security Metrics
+                </div>
               </div>
               <div>
                 <div className="text-3xl font-bold text-slate-800 mb-1">
@@ -211,10 +228,11 @@ const Dashboard: React.FC = () => {
                 <div className="text-slate-600 font-medium">System Status</div>
               </div>
             </div>
-            
+
             <div className="mt-6 pt-6 border-t border-slate-200 text-center">
               <p className="text-slate-500 text-sm">
-                Dashboard powered by advanced security monitoring • Updated every 5 minutes
+                Dashboard powered by advanced security monitoring • Updated
+                every 5 minutes
               </p>
             </div>
           </div>

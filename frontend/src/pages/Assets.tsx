@@ -16,17 +16,16 @@ import {
   CloudUpload,
   FileDownload,
 } from "@mui/icons-material";
-import {
-  AssetCard,
-  AssetFilters,
-  AssetFormDialog,
-  AssetDetailsDialog,
-  AssetExportDialog,
-  ImportDialog,
-  DeleteConfirmationDialog,
-} from "../components/Assets";
+import AssetCard from "../components/Assets/Cards/AssetCard";
+import AssetFilters from "../components/Assets/Filters/AssetFilters";
+import AssetFormDialog from "../components/Assets/Dialogs/AssetFormDialog";
+import AssetDetailsDialog from "../components/Assets/Dialogs/AssetDetailsDialog";
+import AssetExportDialog from "../components/Assets/Dialogs/AssetExportDialog";
+import ImportDialog from "../components/Assets/Dialogs/ImportDialog";
+import DeleteConfirmationDialog from "../components/Assets/Dialogs/DeleteConfirmationDialog";
 import { Asset, AssetFilter } from "../types/asset.types";
-import { useAssets, useAssetExport } from "../hooks/assets";
+import { useAssets } from "../hooks/assets/useAssets";
+import { useAssetExport } from "../hooks/assets/useAssetExport";
 import toast from "react-hot-toast";
 
 const Assets = () => {

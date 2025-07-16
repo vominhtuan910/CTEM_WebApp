@@ -2,25 +2,20 @@ import { useState, useRef } from "react";
 import {
   Box,
   Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
   IconButton,
   LinearProgress,
   Tooltip,
   useTheme,
   alpha,
+  Paper,
 } from "@mui/material";
 import {
   CloudUpload,
-  Close as CloseIcon,
   Delete as DeleteIcon,
   Cancel as CancelIcon,
 } from "@mui/icons-material";
-import { dialogStyles } from "../../../utils/assets/assetStyles";
 import toast from "react-hot-toast";
+import BaseDialog from "../../common/BaseDialog";
 
 interface ImportDialogProps {
   open: boolean;
@@ -50,6 +45,13 @@ const ImportDialog: React.FC<ImportDialogProps> = ({
     progress: 0,
     uploadIntervalId: null,
   });
+
+  // Handle dialog close
+  const handleCancel = () => {
+    if (!importState.isUploading) {
+      onClose();
+    }
+  };
 
   const handleFileSelect = (file: File | null) => {
     if (!file) return;
@@ -174,253 +176,149 @@ const ImportDialog: React.FC<ImportDialogProps> = ({
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
-  const handleCloseDialog = () => {
-    if (!importState.isUploading) {
-      onClose();
-    }
-  };
-
-  return (
-    <Dialog
-      open={open}
-      onClose={handleCloseDialog}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: dialogStyles.paper,
-      }}
-      TransitionProps={{
-        style: {
-          transitionDuration: "300ms",
-          transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-        },
-      }}
-    >
-      <DialogTitle sx={dialogStyles.title}>
-        <Typography variant="h6" id="import-dialog-title">
-          Import Assets
-        </Typography>
-        <IconButton
-          onClick={handleCloseDialog}
-          size="small"
-          sx={dialogStyles.closeButton}
-          aria-label="Close import dialog"
-          disabled={importState.isUploading}
-        >
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent sx={dialogStyles.content}>
-        <Box>
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept=".csv,.json"
-            style={{ display: "none" }}
-            onChange={handleFileInputChange}
-            aria-label="Select CSV or JSON file"
-          />
-
-          <Box
-            onClick={() =>
-              !importState.isUploading &&
-              !importState.file &&
-              fileInputRef.current?.click()
-            }
-            onDrop={handleFileDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            sx={{
-              border: "2px dashed",
-              borderColor: importState.isDragging
-                ? "primary.main"
-                : importState.file
-                ? "success.main"
-                : "divider",
-              borderRadius: 2,
-              p: 4,
-              textAlign: "center",
-              cursor:
-                importState.isUploading || importState.file
-                  ? "default"
-                  : "pointer",
-              bgcolor: importState.isDragging
-                ? alpha(theme.palette.primary.main, 0.05)
-                : importState.file
-                ? alpha(theme.palette.success.main, 0.05)
-                : "transparent",
-              transition: "all 0.2s ease-in-out",
-              mb: 3,
-            }}
-          >
-            {!importState.file ? (
-              <>
-                <CloudUpload
-                  sx={{
-                    fontSize: 48,
-                    color: importState.isDragging
-                      ? "primary.main"
-                      : "text.secondary",
-                    mb: 2,
-                  }}
-                />
-                <Typography variant="h6" gutterBottom>
-                  {importState.isDragging
-                    ? "Drop the file here"
-                    : "Drag & Drop"}
-                </Typography>
-                <Typography variant="body2" color="textSecondary" gutterBottom>
-                  Drop your CSV or JSON file here, or click to browse
-                </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  Maximum file size: 5MB
-                </Typography>
-              </>
-            ) : (
-              <>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mb: 2,
-                  }}
-                >
-                  <CloudUpload
-                    sx={{ fontSize: 32, color: "success.main", mr: 1 }}
-                  />
-                  <Typography variant="h6" color="success.main">
-                    File Selected
-                  </Typography>
-                </Box>
-
-                <Typography variant="body1" gutterBottom>
-                  {importState.file.name}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  {formatFileSize(importState.file.size)}
-                </Typography>
-
-                {importState.isUploading ? (
-                  <Box sx={{ mt: 3 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={importState.progress}
-                      sx={{
-                        height: 10,
-                        borderRadius: 1,
-                        mb: 1,
-                      }}
-                    />
-                    <Box
-                      sx={{ display: "flex", justifyContent: "space-between" }}
-                    >
-                      <Typography variant="caption" color="textSecondary">
-                        Uploading...
-                      </Typography>
-                      <Typography variant="caption" color="textSecondary">
-                        {importState.progress}%
-                      </Typography>
-                    </Box>
-                  </Box>
-                ) : (
-                  <Box
-                    sx={{ mt: 2, display: "flex", justifyContent: "center" }}
-                  >
-                    <Tooltip title="Remove file">
-                      <IconButton
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setImportState((prev) => ({ ...prev, file: null }));
-                        }}
-                        color="error"
-                        size="small"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                )}
-              </>
-            )}
-          </Box>
-
-          <Box
-            sx={{
-              bgcolor: alpha(theme.palette.info.main, 0.1),
-              p: 2,
-              borderRadius: 1,
-            }}
-          >
-            <Typography variant="subtitle2" color="info.main" gutterBottom>
-              Format Guidelines
-            </Typography>
-            <Typography variant="body2">
-              • For CSV: Include headers with "hostname", "ip_address",
-              "os_name", etc.
-            </Typography>
-            <Typography variant="body2">
-              • For JSON: Use array of objects with properties matching the
-              asset format
-            </Typography>
-            <Button
-              size="small"
-              sx={{
-                mt: 1,
-                textTransform: "none",
-                color: "info.main",
-                "&:hover": {
-                  bgcolor: alpha(theme.palette.info.main, 0.2),
-                },
-              }}
-              onClick={() => toast.success("Sample template downloaded")}
-            >
-              Download Sample Template
-            </Button>
-          </Box>
-        </Box>
-      </DialogContent>
-      <DialogActions sx={dialogStyles.actions}>
-        {importState.isUploading ? (
-          <Button
-            variant="outlined"
-            color="error"
-            onClick={handleCancelUpload}
-            startIcon={<CancelIcon />}
-            sx={{ borderRadius: 2, textTransform: "none" }}
-          >
-            Cancel Upload
-          </Button>
-        ) : (
-          <Button
-            onClick={handleCloseDialog}
-            variant="outlined"
-            sx={{ borderRadius: 2, textTransform: "none" }}
-          >
-            Cancel
-          </Button>
-        )}
-        <Button
-          variant="contained"
-          onClick={handleUpload}
-          disabled={!importState.file || importState.isUploading}
-          startIcon={<CloudUpload />}
+  // Create main dialog content - file upload area
+  const uploadContent = (
+    <Box sx={{ mt: 2 }}>
+      {/* File Upload Area */}
+      <Box
+        sx={{
+          border: "2px dashed",
+          borderColor: importState.isDragging ? "primary.main" : "divider",
+          borderRadius: 2,
+          bgcolor: importState.isDragging
+            ? (theme) => alpha(theme.palette.primary.main, 0.05)
+            : "background.paper",
+          p: 3,
+          textAlign: "center",
+          transition: "all 0.2s ease-in-out",
+          cursor: "pointer",
+          "&:hover": {
+            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.05),
+            borderColor: "primary.main",
+          },
+        }}
+        onClick={() => fileInputRef.current?.click()}
+        onDrop={handleFileDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: "none" }}
+          accept=".csv,.json"
+          onChange={handleFileInputChange}
+        />
+        <CloudUpload
           sx={{
-            borderRadius: 2,
-            textTransform: "none",
-            bgcolor: "primary.main",
-            "&:hover": {
-              bgcolor: "primary.dark",
-            },
-            "&.Mui-disabled": {
-              bgcolor: alpha(theme.palette.primary.main, 0.3),
-            },
+            fontSize: 48,
+            color: importState.isDragging ? "primary.main" : "text.secondary",
+            mb: 2,
+          }}
+        />
+        <Typography variant="h6" gutterBottom>
+          {importState.isDragging
+            ? "Drop file here"
+            : "Drag & Drop a file here or click to browse"}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Supports CSV and JSON formats, max 5MB
+        </Typography>
+      </Box>
+
+      {/* Selected File Info */}
+      {importState.file && (
+        <Paper
+          variant="outlined"
+          sx={{
+            mt: 2,
+            p: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
         >
-          {importState.isUploading ? "Uploading..." : "Upload File"}
-        </Button>
-      </DialogActions>
-    </Dialog>
+          <Box>
+            <Typography variant="subtitle2">{importState.file.name}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {formatFileSize(importState.file.size)} •{" "}
+              {importState.file.type || "Unknown type"}
+            </Typography>
+          </Box>
+          <Box>
+            {importState.isUploading ? (
+              <Tooltip title="Cancel upload">
+                <IconButton
+                  color="error"
+                  size="small"
+                  onClick={handleCancelUpload}
+                >
+                  <CancelIcon />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Tooltip title="Remove file">
+                <IconButton
+                  color="default"
+                  size="small"
+                  onClick={() =>
+                    setImportState((prev) => ({ ...prev, file: null }))
+                  }
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
+        </Paper>
+      )}
+
+      {/* Upload Progress */}
+      {importState.isUploading && (
+        <Box sx={{ mt: 2 }}>
+          <LinearProgress
+            variant="determinate"
+            value={importState.progress}
+            sx={{ height: 8, borderRadius: 4 }}
+          />
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            align="right"
+            sx={{ display: "block", mt: 0.5 }}
+          >
+            {importState.progress}% Complete
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+
+  // Impact points for the dialog
+  const impactPoints = [
+    "Imported assets will be added to your inventory",
+    "Duplicates will be identified based on hostname and IP",
+    "CSV files should include headers: hostname, ip, os, status",
+  ];
+
+  return (
+    <BaseDialog
+      isOpen={open}
+      title="Import Assets"
+      body="Upload a file containing assets to import into the system."
+      impactPoints={impactPoints}
+      primaryLabel={importState.file ? "Import" : "Select File"}
+      secondaryLabel="Cancel"
+      onPrimary={
+        importState.file ? handleUpload : () => fileInputRef.current?.click()
+      }
+      onCancel={handleCancel}
+      closeOnBackdropClick={!importState.isUploading}
+      closeOnEsc={!importState.isUploading}
+      preLabel="Data Import"
+    >
+      {uploadContent}
+    </BaseDialog>
   );
 };
 
