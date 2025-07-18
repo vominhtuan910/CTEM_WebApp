@@ -1,11 +1,11 @@
-const { exec } = require('child_process');
-const fs = require('fs');
+import { exec } from 'child_process';
+import fs from 'fs';
 
 const outputFileName = 'output/kali_info.json';
 let results = {};
 
 
-const executeCommand = (command, key, parseFunction = (output) => output.trim()) => {
+export const executeCommand = (command, key, parseFunction = (output) => output.trim()) => {
     return new Promise((resolve, reject) => {
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -22,7 +22,7 @@ const executeCommand = (command, key, parseFunction = (output) => output.trim())
     });
 };
 
-const parseIpAOutput = (output) => {
+export const parseIpAOutput = (output) => {
     const interfaces = {};
     const lines = output.split('\n');
     let currentInterface = null;
@@ -82,22 +82,24 @@ const parseIpAOutput = (output) => {
 };
 
 
-Promise.all([
-    executeCommand('hostname', 'hostname'),
-    executeCommand('hostname -I', 'ip_addresses_short'), // Lấy các IP chính
-    executeCommand('ip a', 'network_interfaces', parseIpAOutput) // Lấy thông tin chi tiết các interface
-])
-.then(() => {
-    
-    const jsonOutput = JSON.stringify(results, null, 4); // null, 4 để định dạng JSON đẹp
-    fs.writeFile(outputFileName, jsonOutput, (err) => {
-        if (err) {
-            console.error(`Error while writing file JSON: ${err.message}`);
-            return;
-        }
+export function scanHostname_IPs() {
+    Promise.all([
+        executeCommand('hostname', 'hostname'),
+        executeCommand('hostname -I', 'ip_addresses_short'), // Lấy các IP chính
+        executeCommand('ip a', 'network_interfaces', parseIpAOutput) // Lấy thông tin chi tiết các interface
+    ])
+    .then(() => {
         
+        const jsonOutput = JSON.stringify(results, null, 4); // null, 4 để định dạng JSON đẹp
+        fs.writeFile(outputFileName, jsonOutput, (err) => {
+            if (err) {
+                console.error(`Error while writing file JSON: ${err.message}`);
+                return;
+            }
+            
+        });
+    })
+    .catch((err) => {
+        console.error('Error');
     });
-})
-.catch((err) => {
-    console.error('Error');
-});
+}
