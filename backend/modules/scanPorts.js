@@ -55,21 +55,11 @@ export function scanPorts() {
 
                         console.log(`- ${portId}/${protocol} (${serviceName}) - ${state}`);
 
-                        if (state === 'open' && ['http', 'https', 'http-alt', 'http-proxy'].includes(serviceName)) {
-                            const url = `http://localhost:${portId}`;
-                            httpLikePorts.push(url);
-                        }
                     });
                 } else {
                     console.log('No open ports detected.');
                 }
-                httpLikePorts.push('http://localhost/DVWA');
-
-                if (httpLikePorts.length > 0) {
-                    fs.writeFileSync(nucleiTargetsPath, httpLikePorts.join('\n'));
-                } else {
-                    console.log('⚠️ No HTTP services found to target.');
-                }
+                
             });
         });
     });

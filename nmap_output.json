@@ -1,0 +1,24 @@
+{
+  "ports": [
+    {
+      "port": "135/tcp",
+      "state": "open",
+      "service": "msrpc"
+    },
+    {
+      "port": "445/tcp",
+      "state": "open",
+      "service": "microsoft-ds"
+    },
+    {
+      "port": "903/tcp",
+      "state": "open",
+      "service": "iss-console-mgr"
+    },
+    {
+      "port": "8080/tcp",
+      "state": "open",
+      "service": "http-proxy"
+    }
+  ]
+}

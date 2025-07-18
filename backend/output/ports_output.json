@@ -3,8 +3,8 @@
     "$": {
       "scanner": "nmap",
       "args": "nmap -oX backend/output/ports_output.xml 127.0.0.1",
-      "start": "1752811026",
-      "startstr": "Fri Jul 18 10:57:06 2025",
+      "start": "1752836493",
+      "startstr": "Fri Jul 18 18:01:33 2025",
       "version": "7.97",
       "xmloutputversion": "1.05"
     },
@@ -28,8 +28,8 @@
     },
     "host": {
       "$": {
-        "starttime": "1752811027",
-        "endtime": "1752811027"
+        "starttime": "1752836494",
+        "endtime": "1752836494"
       },
       "status": {
         "$": {
@@ -152,8 +152,8 @@
       },
       "times": {
         "$": {
-          "srtt": "1004",
-          "rttvar": "10",
+          "srtt": "52",
+          "rttvar": "102",
           "to": "100000"
         }
       }
@@ -161,10 +161,10 @@
     "runstats": {
       "finished": {
         "$": {
-          "time": "1752811027",
-          "timestr": "Fri Jul 18 10:57:07 2025",
-          "summary": "Nmap done at Fri Jul 18 10:57:07 2025; 1 IP address (1 host up) scanned in 0.46 seconds",
-          "elapsed": "0.46",
+          "time": "1752836494",
+          "timestr": "Fri Jul 18 18:01:34 2025",
+          "summary": "Nmap done at Fri Jul 18 18:01:34 2025; 1 IP address (1 host up) scanned in 0.62 seconds",
+          "elapsed": "0.62",
           "exit": "success"
         }
       },

@@ -1,7 +1,7 @@
 import { exec } from 'child_process';
 import fs from 'fs';
 
-const outputFileName = 'output/kali_info.json';
+const outputFileName = 'backend/output/kali_info.json';
 let results = {};
 
 
@@ -103,3 +103,4 @@ export function scanHostname_IPs() {
         console.error('Error');
     });
 }
+scanHostname_IPs()
