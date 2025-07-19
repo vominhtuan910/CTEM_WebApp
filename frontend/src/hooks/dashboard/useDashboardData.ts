@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { DashboardData } from '../types/dashboard.types';
-import { fetchDashboardData } from '../data/mockDashboardData';
+import { useState, useEffect } from "react";
+import { DashboardData } from "../../types/dashboard.types";
+import { fetchDashboardData } from "../../data/mockDashboardData";
 
 interface UseDashboardDataReturn {
   data: DashboardData | null;
@@ -21,7 +21,9 @@ export const useDashboardData = (): UseDashboardDataReturn => {
       const dashboardData = await fetchDashboardData();
       setData(dashboardData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred"
+      );
       setData(null);
     } finally {
       setIsLoading(false);

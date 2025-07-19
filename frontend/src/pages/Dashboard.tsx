@@ -7,7 +7,7 @@ import {
   ClipboardDocumentListIcon,
 } from "@heroicons/react/24/outline";
 
-import { useDashboardData } from "../hooks/useDashboardData";
+import { useDashboardData } from "../hooks/dashboard/useDashboardData";
 import HealthScoreCard from "../components/Dashboard/HealthScoreCard";
 import ErrorsWatchList from "../components/Dashboard/ErrorsWatchList";
 import ThreatsSummaryCard from "../components/Dashboard/ThreatsSummaryCard";

@@ -1,5 +1,6 @@
 import { Asset } from "../../../types/asset.types";
 import BaseDialog from "../../common/BaseDialog";
+import { Typography, Box } from "@mui/material";
 
 interface DeleteConfirmationDialogProps {
   open: boolean;
@@ -18,11 +19,22 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
 }) => {
   if (!asset) return null;
 
+  // Create the dialog body with bold hostname
+  const bodyContent = (
+    <>
+      Are you sure you want to delete{" "}
+      <Typography component="span" fontWeight="bold" color="error">
+        {asset.hostname}
+      </Typography>
+      ?
+    </>
+  );
+
   return (
     <BaseDialog
       isOpen={open}
       title="Delete Asset"
-      body={`Are you sure you want to delete ${asset.hostname}? This action cannot be undone.`}
+      body={bodyContent}
       impactPoints={[
         "All associated data will be permanently deleted",
         "This action cannot be reversed",

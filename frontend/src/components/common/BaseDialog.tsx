@@ -44,7 +44,7 @@ interface BaseDialogProps {
   /** Dialog title displayed in header */
   title: string | ReactNode;
   /** Main dialog content text */
-  body: string;
+  body: string | ReactNode;
   /** Optional list of impact points displayed as bullets */
   impactPoints?: string[];
   /** Label for primary/confirmation button */
@@ -69,6 +69,12 @@ interface BaseDialogProps {
   closeOnEsc?: boolean;
   /** Optional children to render after the body text and impact points */
   children?: ReactNode;
+  /** Dialog size - controls max width and other size properties */
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
+  /** Whether dialog should take full width up to maxWidth */
+  fullWidth?: boolean;
+  /** Height of the dialog content in percentage of viewport height (default: auto) */
+  maxHeightPercentage?: number;
 }
 
 const BaseDialog: React.FC<BaseDialogProps> = ({
@@ -87,6 +93,9 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
   preLabel,
   closeOnEsc = true,
   children,
+  size = "sm",
+  fullWidth = true,
+  maxHeightPercentage,
 }) => {
   const theme = useTheme();
   const [confirmText, setConfirmText] = useState("");
@@ -156,9 +165,9 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
 
   const getIconForMode = () => {
     return mode === "destructive" ? (
-      <WarningIcon color="error" sx={{ fontSize: 24, mr: 1 }} />
+      <WarningIcon color="error" sx={{ fontSize: 20, mr: 1 }} />
     ) : (
-      <InfoIcon color="primary" sx={{ fontSize: 24, mr: 1 }} />
+      <InfoIcon color="primary" sx={{ fontSize: 20, mr: 1 }} />
     );
   };
 
@@ -174,6 +183,41 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
       : theme.palette.primary.main;
   };
 
+  // Get max width based on size prop
+  const getMaxWidth = () => {
+    switch (size) {
+      case "xs":
+        return 360; // Small confirmation dialogs
+      case "sm":
+        return 500; // Standard dialogs
+      case "md":
+        return 720; // Medium-sized dialogs with forms
+      case "lg":
+        return 960; // Large dialogs with complex content
+      case "xl":
+        return 1200; // Extra large dialogs for data-rich content
+      default:
+        return 500;
+    }
+  };
+
+  // Render body content based on type
+  const renderBodyContent = () => {
+    if (typeof body === "string") {
+      return (
+        <Typography
+          id="dialog-body"
+          variant="body1"
+          paragraph
+          sx={{ whiteSpace: "pre-line" }}
+        >
+          {body}
+        </Typography>
+      );
+    }
+    return <Box id="dialog-body">{body}</Box>;
+  };
+
   return (
     <Dialog
       open={isOpen}
@@ -183,7 +227,8 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
       aria-modal="true"
       role={mode === "destructive" ? "alertdialog" : "dialog"}
       onKeyDown={handleKeyDown}
-      maxWidth="sm"
+      maxWidth={size}
+      fullWidth={fullWidth}
       PaperProps={{
         component: Paper,
         elevation: 24,
@@ -191,12 +236,13 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
           borderRadius: 2,
           overflow: "hidden",
           width: "100%",
-          maxWidth: 500,
+          maxWidth: getMaxWidth(),
           boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
           border:
             mode === "destructive"
               ? `1px solid ${alpha(theme.palette.error.main, 0.3)}`
               : undefined,
+          maxHeight: maxHeightPercentage ? `${maxHeightPercentage}vh` : "90vh",
         },
       }}
       sx={{
@@ -207,7 +253,7 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
       <DialogTitle
         id="dialog-title"
         sx={{
-          p: 2,
+          p: 1.5,
           bgcolor: getTitleBarColor(),
           borderLeft: `4px solid ${getBorderColor()}`,
           display: "flex",
@@ -229,7 +275,11 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
               </Typography>
             )}
             {typeof title === "string" ? (
-              <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+              <Typography
+                variant="subtitle1"
+                component="h2"
+                sx={{ fontWeight: 500 }}
+              >
                 {title}
               </Typography>
             ) : (
@@ -256,15 +306,21 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
       </DialogTitle>
 
       {/* Dialog Content */}
-      <DialogContent sx={{ px: 3, py: 2.5 }}>
-        <Typography
-          id="dialog-body"
-          variant="body1"
-          paragraph
-          sx={{ whiteSpace: "pre-line" }}
-        >
-          {body}
-        </Typography>
+      <DialogContent
+        sx={{
+          px: 3,
+          py: 2.5,
+          // Add flex properties if maxHeightPercentage is provided to ensure content fits
+          ...(maxHeightPercentage
+            ? {
+                overflow: "auto",
+                display: "flex",
+                flexDirection: "column",
+              }
+            : {}),
+        }}
+      >
+        {renderBodyContent()}
 
         {/* Impact Points (Optional) */}
         {impactPoints && impactPoints.length > 0 && (
