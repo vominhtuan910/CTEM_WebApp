@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Container, Snackbar, Alert } from "@mui/material";
-import useVulnerabilityData from "../hooks/useVulnerabilityData";
+import { useVulnerabilityData } from "../hooks/vulnerability/useVulnerabilityData";
 
 // Import new components
 import IssueHeader from "../components/Issues/Header/IssueHeader";

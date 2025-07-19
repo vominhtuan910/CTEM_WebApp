@@ -56,6 +56,26 @@ const TabPanel = (props: TabPanelProps) => {
   );
 };
 
+// Field labels for export
+const fieldLabels: Record<string, string> = {
+  name: "Name",
+  type: "Type",
+  cvssScore: "CVSS Score",
+  severityLevel: "Severity Level",
+  affectedAssets: "Affected Assets",
+  discoveryDate: "Discovery Date",
+  status: "Status",
+  description: "Description",
+  recommendations: "Recommendations",
+  cveReferences: "CVE References",
+  vector: "CVSS Vector",
+  exploitAvailable: "Exploit Available",
+  patchAvailable: "Patch Available",
+  assignedTo: "Assigned To",
+  lastUpdated: "Last Updated",
+  tags: "Tags",
+};
+
 const ExportDialog: React.FC<ExportDialogProps> = ({
   open,
   onClose,
@@ -256,25 +276,6 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
     navigator.clipboard.writeText(previewData);
   };
 
-  const fieldLabels: Record<string, string> = {
-    name: "Name",
-    type: "Type",
-    cvssScore: "CVSS Score",
-    severityLevel: "Severity Level",
-    affectedAssets: "Affected Assets",
-    discoveryDate: "Discovery Date",
-    status: "Status",
-    description: "Description",
-    recommendations: "Recommendations",
-    cveReferences: "CVE References",
-    vector: "CVSS Vector",
-    exploitAvailable: "Exploit Available",
-    patchAvailable: "Patch Available",
-    assignedTo: "Assigned To",
-    lastUpdated: "Last Updated",
-    tags: "Tags",
-  };
-
   const getFormatIcon = () => {
     switch (exportFormat) {
       case "csv":
@@ -468,6 +469,8 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
       onPrimary={handleExport}
       onCancel={onClose}
       preLabel="Data Export"
+      size="md"
+      fullWidth={true}
     >
       {exportContent}
     </BaseDialog>
