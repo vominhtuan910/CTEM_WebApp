@@ -433,8 +433,15 @@ const Assets = () => {
         onClose={closeDialog}
         onScanComplete={(success, data) => {
           if (success) {
-            toast.success(`Scan completed! Found ${data.assetsFound} assets.`);
+            const assetsFound = data.assetsFound || 0;
+            toast.success(
+              `Scan completed! Found ${assetsFound} ${
+                assetsFound === 1 ? "asset" : "assets"
+              }.`
+            );
             fetchAssets();
+            // Only close dialog if scan was successful
+            setOpenDialog(null);
           }
         }}
       />
