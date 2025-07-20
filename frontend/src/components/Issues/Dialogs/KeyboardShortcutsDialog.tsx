@@ -63,6 +63,7 @@ const KeyboardShortcutsDialog: React.FC<KeyboardShortcutsDialogProps> = ({
       primaryLabel="Close"
       onPrimary={onClose}
       preLabel="Productivity"
+      showSecondaryButton={false}
     >
       {shortcutsContent}
     </BaseDialog>

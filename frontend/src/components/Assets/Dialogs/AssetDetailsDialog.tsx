@@ -7,7 +7,6 @@ import {
   Divider,
   useTheme,
   alpha,
-  Badge,
   Chip,
   Fade,
   Tooltip,
@@ -89,10 +88,6 @@ const AssetDetailsDialog: React.FC<AssetDetailsDialogProps> = ({
     onDelete(asset);
   };
 
-  // Get the appropriate badge count for each tab
-  const getServiceCount = () => asset.services.length;
-  const getAppCount = () => asset.applications.length;
-
   // Get health score color
   const getHealthScoreColor = (score?: number) => {
     if (!score) return theme.palette.grey[500];
@@ -168,17 +163,7 @@ const AssetDetailsDialog: React.FC<AssetDetailsDialogProps> = ({
             <Tab
               icon={<MemoryIcon fontSize="small" />}
               iconPosition="start"
-              label={
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  Services
-                  <Badge
-                    badgeContent={getServiceCount()}
-                    color="primary"
-                    sx={{ ml: 1 }}
-                    max={99}
-                  />
-                </Box>
-              }
+              label="Services"
               sx={{
                 minHeight: 48,
                 transition: "all 0.2s",
@@ -191,17 +176,7 @@ const AssetDetailsDialog: React.FC<AssetDetailsDialogProps> = ({
             <Tab
               icon={<AppsIcon fontSize="small" />}
               iconPosition="start"
-              label={
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  Applications
-                  <Badge
-                    badgeContent={getAppCount()}
-                    color="primary"
-                    sx={{ ml: 1 }}
-                    max={99}
-                  />
-                </Box>
-              }
+              label="Applications"
               sx={{
                 minHeight: 48,
                 transition: "all 0.2s",
@@ -328,6 +303,7 @@ const AssetDetailsDialog: React.FC<AssetDetailsDialogProps> = ({
         mode="default"
         size="lg"
         maxHeightPercentage={80}
+        showSecondaryButton={false}
       >
         {customContent}
       </BaseDialog>

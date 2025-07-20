@@ -1,7 +1,33 @@
 import { useState, useEffect } from "react";
-import { Asset, AssetFilter } from "../../types/asset.types";
+import { Asset, AssetFilter, Service } from "../../types/asset.types";
 import { mockAssets } from "../../data/mockAssets";
 import toast from "react-hot-toast";
+import { api } from "../../services/api";
+
+interface AddressType {
+  $: {
+    addr: string;
+    addrtype: string;
+  };
+}
+
+interface PortType {
+  $: {
+    portid: string;
+    protocol: string;
+  };
+  state: {
+    $: {
+      state: string;
+    };
+  };
+  service: {
+    $: {
+      name: string;
+      product?: string;
+    };
+  };
+}
 
 export const useAssets = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -9,22 +35,120 @@ export const useAssets = () => {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // Simulate API call with mock data
+    // Fetch assets when the component mounts
     fetchAssets();
   }, []);
 
   const fetchAssets = async () => {
     setLoading(true);
     try {
-      // In a real app, this would be an API call
-      setTimeout(() => {
-        setAssets(mockAssets);
-        setLoading(false);
-      }, 1000); // Simulate network delay
+      // First try to get real data from the backend
+      try {
+        // Get port scan data
+        const portData = await api.scan.getPorts();
+
+        if (portData && portData.nmaprun && portData.nmaprun.host) {
+          // Convert port scan data to Asset format
+          const scanAssets = await convertPortDataToAssets(portData);
+
+          if (scanAssets.length > 0) {
+            setAssets(scanAssets);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn(
+          "Could not fetch real asset data, falling back to mock data:",
+          error
+        );
+      }
+
+      // Fallback to mock data if API fails
+      setAssets(mockAssets);
+      setLoading(false);
     } catch (error) {
       console.error("Error fetching assets:", error);
       toast.error("Failed to load assets");
       setLoading(false);
+    }
+  };
+
+  // Helper function to convert port scan data to Asset format
+  const convertPortDataToAssets = async (portData: any): Promise<Asset[]> => {
+    try {
+      // Try to get system info for more details
+      let systemInfo = null;
+      try {
+        systemInfo = await api.scan.getSystemInfo();
+      } catch (error) {
+        console.warn("Could not fetch system info:", error);
+      }
+
+      const host = portData.nmaprun.host;
+      if (!host) return [];
+
+      // Get host details
+      const hostAddress = Array.isArray(host.address)
+        ? host.address.find((addr: AddressType) => addr.$.addrtype === "ipv4")
+            ?.$.addr
+        : host.address?.$.addr;
+
+      if (!hostAddress) return [];
+
+      // Get hostname
+      const hostname =
+        host.hostnames?.hostname?.$.name ||
+        systemInfo?.hostname ||
+        `host-${hostAddress.replace(/\./g, "-")}`;
+
+      // Get OS details
+      const osInfo = host.os?.osmatch?.[0] || {};
+      const osName = osInfo.$.name || "Unknown";
+      const osAccuracy = osInfo.$.accuracy || "Unknown";
+
+      // Get ports
+      const ports = Array.isArray(host.ports?.port)
+        ? host.ports.port
+        : host.ports?.port
+        ? [host.ports.port]
+        : [];
+
+      // Convert to services
+      const services: Service[] = ports.map((port: PortType) => ({
+        name: port.service?.$.name || "unknown",
+        displayName:
+          port.service?.$.product || port.service?.$.name || "Unknown Service",
+        status: port.state?.$.state === "open" ? "running" : "stopped",
+        startType: "automatic",
+        pid: undefined,
+        port: parseInt(port.$.portid, 10),
+      }));
+
+      // Create asset object
+      const asset: Asset = {
+        id: `scan-${Date.now()}`,
+        hostname,
+        ipAddress: hostAddress,
+        status: "active",
+        lastScan: new Date().toISOString(),
+        os: {
+          name: osName,
+          version: osInfo.$.osclass?.[0]?.$.osfamily || "Unknown",
+          architecture: osInfo.$.osclass?.[0]?.$.osgen || "x64",
+          buildNumber: osAccuracy,
+          lastBootTime: new Date().toISOString(),
+        },
+        services,
+        applications: [],
+        healthScore: 85,
+        issuesCount: services.length > 3 ? 2 : 0,
+      };
+
+      return [asset];
+    } catch (error) {
+      console.error("Error converting port data to assets:", error);
+      return [];
     }
   };
 

@@ -75,6 +75,10 @@ interface BaseDialogProps {
   fullWidth?: boolean;
   /** Height of the dialog content in percentage of viewport height (default: auto) */
   maxHeightPercentage?: number;
+  /** Whether to show the secondary/cancel button (default: true) */
+  showSecondaryButton?: boolean;
+  /** Whether to disable the primary button (default: false) */
+  disablePrimaryButton?: boolean;
 }
 
 const BaseDialog: React.FC<BaseDialogProps> = ({
@@ -96,6 +100,8 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
   size = "sm",
   fullWidth = true,
   maxHeightPercentage,
+  showSecondaryButton = true,
+  disablePrimaryButton = false,
 }) => {
   const theme = useTheme();
   const [confirmText, setConfirmText] = useState("");
@@ -380,22 +386,29 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
 
       {/* Dialog Actions */}
       <DialogActions
-        sx={{ px: 3, py: 2, display: "flex", justifyContent: "space-between" }}
+        sx={{
+          px: 3,
+          py: 2,
+          display: "flex",
+          justifyContent: showSecondaryButton ? "space-between" : "flex-end",
+        }}
       >
-        <Button
-          onClick={onCancel}
-          variant="outlined"
-          color="inherit"
-          sx={{ minWidth: 100 }}
-          ref={initialFocusRef} // Initial focus on the cancel button
-        >
-          {secondaryLabel}
-        </Button>
+        {showSecondaryButton && (
+          <Button
+            onClick={onCancel}
+            variant="outlined"
+            color="inherit"
+            sx={{ minWidth: 100 }}
+            ref={initialFocusRef} // Initial focus on the cancel button
+          >
+            {secondaryLabel}
+          </Button>
+        )}
         <Button
           onClick={handlePrimary}
           variant="contained"
           color={getPrimaryButtonColor()}
-          disabled={!isConfirmed}
+          disabled={!isConfirmed || disablePrimaryButton}
           sx={{
             minWidth: 100,
             fontWeight: 500,
@@ -404,6 +417,7 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
                 ? "0 3px 8px rgba(211, 47, 47, 0.25)"
                 : undefined,
           }}
+          ref={!showSecondaryButton ? initialFocusRef : undefined} // Set focus to primary button if no secondary button
         >
           {primaryLabel}
         </Button>

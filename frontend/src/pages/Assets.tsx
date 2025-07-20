@@ -8,6 +8,7 @@ import {
   Button,
   CircularProgress,
   Container,
+  Tooltip,
 } from "@mui/material";
 import {
   GridView,
@@ -15,6 +16,7 @@ import {
   Add,
   CloudUpload,
   FileDownload,
+  SecurityOutlined,
 } from "@mui/icons-material";
 import AssetCard from "../components/Assets/Cards/AssetCard";
 import AssetFilters from "../components/Assets/Filters/AssetFilters";
@@ -23,10 +25,12 @@ import AssetDetailsDialog from "../components/Assets/Dialogs/AssetDetailsDialog"
 import AssetExportDialog from "../components/Assets/Dialogs/AssetExportDialog";
 import ImportDialog from "../components/Assets/Dialogs/ImportDialog";
 import DeleteConfirmationDialog from "../components/Assets/Dialogs/DeleteConfirmationDialog";
+import ScanDialog from "../components/Assets/Dialogs/ScanDialog";
 import { Asset, AssetFilter } from "../types/asset.types";
 import { useAssets } from "../hooks/assets/useAssets";
 import { useAssetExport } from "../hooks/assets/useAssetExport";
 import toast from "react-hot-toast";
+import { api } from "../services/api";
 
 const Assets = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -36,9 +40,10 @@ const Assets = () => {
     status: [],
     osType: [],
   });
+  const [isScanning, setIsScanning] = useState(false);
 
   const [openDialog, setOpenDialog] = useState<
-    "add" | "import" | "view" | "edit" | "delete" | null
+    "add" | "import" | "view" | "edit" | "delete" | "scan" | null
   >(null);
 
   // Available filter options (would come from API in real app)
@@ -53,6 +58,7 @@ const Assets = () => {
     updateAsset,
     deleteAsset,
     filterAssets,
+    fetchAssets,
   } = useAssets();
 
   const {
@@ -65,6 +71,30 @@ const Assets = () => {
 
   // Filtered assets based on applied filters
   const filteredAssets = filterAssets(assets, filters);
+
+  // Scan for assets
+  const handleScanAssets = async () => {
+    setIsScanning(true);
+    toast.loading("Scanning for assets...", { id: "scan-toast" });
+
+    try {
+      // Start a scan
+      await api.scan.startScan("127.0.0.1");
+
+      // Wait a moment for scan to complete
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Refresh assets
+      await fetchAssets();
+
+      toast.success("Scan completed successfully!", { id: "scan-toast" });
+    } catch (error) {
+      console.error("Scan failed:", error);
+      toast.error("Scan failed. Please try again.", { id: "scan-toast" });
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   // Event handlers
   const handleAssetAction = async (
@@ -143,6 +173,21 @@ const Assets = () => {
           Assets Management
         </Typography>
         <Box sx={{ display: "flex", gap: 2 }}>
+          <Tooltip title="Scan network for assets">
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={<SecurityOutlined />}
+              onClick={() => setOpenDialog("scan")}
+              sx={{
+                borderRadius: 2,
+                textTransform: "none",
+                "&:hover": { backgroundColor: "action.hover" },
+              }}
+            >
+              Scan
+            </Button>
+          </Tooltip>
           <Button
             variant="outlined"
             startIcon={<FileDownload />}
@@ -270,21 +315,36 @@ const Assets = () => {
             No assets found
           </Typography>
           <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-            Try adjusting your filters or adding new assets.
+            Try adjusting your filters, adding new assets, or scanning your
+            network.
           </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => setOpenDialog("add")}
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              boxShadow: 2,
-              "&:hover": { boxShadow: 4 },
-            }}
-          >
-            Add Asset
-          </Button>
+          <Box sx={{ display: "flex", gap: 2, justifyContent: "center" }}>
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<SecurityOutlined />}
+              onClick={() => setOpenDialog("scan")}
+              sx={{
+                borderRadius: 2,
+                textTransform: "none",
+              }}
+            >
+              Scan Network
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => setOpenDialog("add")}
+              sx={{
+                borderRadius: 2,
+                textTransform: "none",
+                boxShadow: 2,
+                "&:hover": { boxShadow: 4 },
+              }}
+            >
+              Add Asset
+            </Button>
+          </Box>
         </Paper>
       ) : (
         <Box
@@ -365,6 +425,18 @@ const Assets = () => {
         open={openDialog === "import"}
         onClose={closeDialog}
         onImportComplete={handleImportComplete}
+      />
+
+      {/* Scan Dialog Component */}
+      <ScanDialog
+        open={openDialog === "scan"}
+        onClose={closeDialog}
+        onScanComplete={(success, data) => {
+          if (success) {
+            toast.success(`Scan completed! Found ${data.assetsFound} assets.`);
+            fetchAssets();
+          }
+        }}
       />
     </Container>
   );

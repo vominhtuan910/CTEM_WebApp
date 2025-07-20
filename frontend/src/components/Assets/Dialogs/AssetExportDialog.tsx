@@ -68,6 +68,7 @@ You can toggle these options in the export settings.`;
       onPrimary={onExport}
       onCancel={onClose}
       mode="default"
+      showSecondaryButton={false}
     />
   );
 };
