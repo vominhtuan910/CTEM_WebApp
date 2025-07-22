@@ -9,6 +9,13 @@ import {
   CircularProgress,
   Container,
   Tooltip,
+  Grid,
+  Card,
+  CardContent,
+  Divider,
+  alpha,
+  useTheme,
+  Fab,
 } from "@mui/material";
 import {
   GridView,
@@ -17,6 +24,8 @@ import {
   CloudUpload,
   FileDownload,
   SecurityOutlined,
+  Refresh,
+  Search as SearchIcon,
 } from "@mui/icons-material";
 import AssetCard from "../components/Assets/Cards/AssetCard";
 import AssetFilters from "../components/Assets/Filters/AssetFilters";
@@ -33,6 +42,7 @@ import toast from "react-hot-toast";
 import { api } from "../services/api";
 
 const Assets = () => {
+  const theme = useTheme();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [filters, setFilters] = useState<AssetFilter>({
@@ -41,19 +51,18 @@ const Assets = () => {
     osType: [],
   });
   const [isScanning, setIsScanning] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [openDialog, setOpenDialog] = useState<
     "add" | "import" | "view" | "edit" | "delete" | "scan" | null
   >(null);
-
-  // Available filter options (would come from API in real app)
-  const availableOsTypes = ["Windows", "Ubuntu", "macOS"];
 
   // Hooks
   const {
     assets,
     loading,
     submitting,
+    availableOsTypes,
     addAsset,
     updateAsset,
     deleteAsset,
@@ -93,6 +102,22 @@ const Assets = () => {
       toast.error("Scan failed. Please try again.", { id: "scan-toast" });
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  // Refresh assets
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    toast.loading("Refreshing assets...", { id: "refresh-toast" });
+
+    try {
+      await fetchAssets();
+      toast.success("Assets refreshed successfully!", { id: "refresh-toast" });
+    } catch (error) {
+      console.error("Refresh failed:", error);
+      toast.error("Failed to refresh assets.", { id: "refresh-toast" });
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -145,11 +170,155 @@ const Assets = () => {
   const handleImportComplete = (data: any) => {
     console.log("Import completed with data:", data);
     toast.success(`Successfully imported ${data.importedCount} assets`);
+    fetchAssets(); // Refresh assets after import
   };
 
   const closeDialog = () => {
     setOpenDialog(null);
     setSelectedAsset(null);
+  };
+
+  // Render asset statistics
+  const renderAssetStats = () => {
+    const activeAssets = assets.filter(
+      (asset) => asset.status === "active"
+    ).length;
+    const inactiveAssets = assets.filter(
+      (asset) => asset.status === "inactive"
+    ).length;
+    const totalServices = assets.reduce(
+      (sum, asset) => sum + asset.services.length,
+      0
+    );
+    const totalApplications = assets.reduce(
+      (sum, asset) => sum + asset.applications.length,
+      0
+    );
+
+    return (
+      <Grid container spacing={2} sx={{ mb: 4 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card
+            elevation={0}
+            sx={{
+              height: "100%",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 2,
+              transition: "all 0.2s",
+              "&:hover": {
+                boxShadow: 3,
+                borderColor: "primary.main",
+              },
+            }}
+          >
+            <CardContent>
+              <Typography
+                variant="h3"
+                sx={{ fontWeight: "bold", color: "primary.main" }}
+              >
+                {assets.length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Total Assets
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card
+            elevation={0}
+            sx={{
+              height: "100%",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 2,
+              transition: "all 0.2s",
+              "&:hover": {
+                boxShadow: 3,
+                borderColor: "success.main",
+              },
+            }}
+          >
+            <CardContent>
+              <Typography
+                variant="h3"
+                sx={{ fontWeight: "bold", color: "success.main" }}
+              >
+                {activeAssets}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Active Assets
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card
+            elevation={0}
+            sx={{
+              height: "100%",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 2,
+              transition: "all 0.2s",
+              "&:hover": {
+                boxShadow: 3,
+                borderColor:
+                  theme.palette.mode === "light" ? "grey.500" : "grey.700",
+              },
+            }}
+          >
+            <CardContent>
+              <Typography
+                variant="h3"
+                sx={{
+                  fontWeight: "bold",
+                  color:
+                    theme.palette.mode === "light" ? "grey.700" : "grey.300",
+                }}
+              >
+                {totalServices}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Total Services
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card
+            elevation={0}
+            sx={{
+              height: "100%",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 2,
+              transition: "all 0.2s",
+              "&:hover": {
+                boxShadow: 3,
+                borderColor: "info.main",
+              },
+            }}
+          >
+            <CardContent>
+              <Typography
+                variant="h3"
+                sx={{ fontWeight: "bold", color: "info.main" }}
+              >
+                {totalApplications}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Total Applications
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    );
   };
 
   return (
@@ -173,19 +342,39 @@ const Assets = () => {
           Assets Management
         </Typography>
         <Box sx={{ display: "flex", gap: 2 }}>
-          <Tooltip title="Scan network for assets">
+          <Tooltip title="Refresh assets">
             <Button
               variant="outlined"
-              color="secondary"
-              startIcon={<SecurityOutlined />}
-              onClick={() => setOpenDialog("scan")}
+              color="info"
+              startIcon={<Refresh />}
+              onClick={handleRefresh}
+              disabled={isRefreshing}
               sx={{
                 borderRadius: 2,
                 textTransform: "none",
-                "&:hover": { backgroundColor: "action.hover" },
+                "&:hover": {
+                  backgroundColor: alpha(theme.palette.info.main, 0.1),
+                },
               }}
             >
-              Scan
+              {isRefreshing ? "Refreshing..." : "Refresh"}
+            </Button>
+          </Tooltip>
+          <Tooltip title="Scan network for assets">
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<SecurityOutlined />}
+              onClick={() => setOpenDialog("scan")}
+              disabled={isScanning}
+              sx={{
+                borderRadius: 2,
+                textTransform: "none",
+                boxShadow: 2,
+                "&:hover": { boxShadow: 4 },
+              }}
+            >
+              {isScanning ? "Scanning..." : "Scan"}
             </Button>
           </Tooltip>
           <Button
@@ -227,6 +416,9 @@ const Assets = () => {
           </Button>
         </Box>
       </Box>
+
+      {/* Asset Statistics */}
+      {!loading && assets.length > 0 && renderAssetStats()}
 
       {/* Filters and View Toggle */}
       <Paper
@@ -380,6 +572,24 @@ const Assets = () => {
           ))}
         </Box>
       )}
+
+      {/* Floating Action Button for scanning */}
+      <Fab
+        color="secondary"
+        aria-label="scan"
+        sx={{
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          boxShadow: 3,
+          "&:hover": {
+            boxShadow: 6,
+          },
+        }}
+        onClick={() => setOpenDialog("scan")}
+      >
+        <SecurityOutlined />
+      </Fab>
 
       {/* Add/Edit Asset Dialog */}
       <AssetFormDialog
