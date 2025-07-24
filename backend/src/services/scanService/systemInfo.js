@@ -1,18 +1,8 @@
 import { exec } from "child_process";
-import fs from "fs";
-import path from "path";
 import os from "os";
 import util from "util";
-import { fileURLToPath } from "url";
 
 const execPromise = util.promisify(exec);
-
-// Get __dirname equivalent in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Output file path
-const outputPath = path.join(__dirname, "..", "output", "system_info.json");
 
 /**
  * Get more detailed system information beyond what Node.js os module provides
@@ -163,72 +153,65 @@ async function getEnhancedSystemInfo() {
  * @returns {Promise<object>} System information
  */
 async function scanHostname_IPs(target = "localhost") {
-  return new Promise(async (resolve, reject) => {
+  try {
     console.log(`Gathering system information for ${target}`);
 
-    try {
-      // Get basic system information from os module
-      const hostname = os.hostname();
-      const interfaces = os.networkInterfaces();
-      const platform = os.platform();
-      const release = os.release();
-      const type = os.type();
-      const arch = os.arch();
-      const uptime = os.uptime();
-      const loadAvg = os.loadavg();
-      const totalMem = os.totalmem();
-      const freeMem = os.freemem();
-      const cpus = os.cpus();
+    // Get basic system information from os module
+    const hostname = os.hostname();
+    const interfaces = os.networkInterfaces();
+    const platform = os.platform();
+    const release = os.release();
+    const type = os.type();
+    const arch = os.arch();
+    const uptime = os.uptime();
+    const loadAvg = os.loadavg();
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const cpus = os.cpus();
 
-      // Format IP addresses
-      const ipAddresses = [];
-      Object.keys(interfaces).forEach((interfaceName) => {
-        interfaces[interfaceName].forEach((iface) => {
-          // Include all addresses, but mark internal ones
-          ipAddresses.push({
-            interface: interfaceName,
-            address: iface.address,
-            netmask: iface.netmask,
-            family: iface.family,
-            mac: iface.mac,
-            internal: iface.internal,
-          });
+    // Format IP addresses
+    const ipAddresses = [];
+    Object.keys(interfaces).forEach((interfaceName) => {
+      interfaces[interfaceName].forEach((iface) => {
+        // Include all addresses, but mark internal ones
+        ipAddresses.push({
+          interface: interfaceName,
+          address: iface.address,
+          netmask: iface.netmask,
+          family: iface.family,
+          mac: iface.mac,
+          internal: iface.internal,
         });
       });
+    });
 
-      // Get enhanced system information
-      const enhancedInfo = await getEnhancedSystemInfo();
+    // Get enhanced system information
+    const enhancedInfo = await getEnhancedSystemInfo();
 
-      // Prepare the result
-      const result = {
-        timestamp: new Date(),
-        hostname,
-        platform,
-        release,
-        type,
-        arch,
-        uptime,
-        loadAvg,
-        totalMem,
-        freeMem,
-        cpus: cpus.map((cpu) => ({
-          model: cpu.model,
-          speed: cpu.speed,
-          times: cpu.times,
-        })),
-        ipAddresses,
-        ...enhancedInfo,
-      };
-
-      // Save to file
-      fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
-
-      resolve(result);
-    } catch (error) {
-      console.error("Error gathering system information:", error);
-      reject(error);
-    }
-  });
+    // Prepare the result
+    return {
+      timestamp: new Date(),
+      hostname,
+      platform,
+      release,
+      type,
+      arch,
+      uptime,
+      loadAvg,
+      totalMem,
+      freeMem,
+      cpus: cpus.map((cpu) => ({
+        model: cpu.model,
+        speed: cpu.speed,
+        times: cpu.times,
+      })),
+      ipAddresses,
+      ...enhancedInfo,
+    };
+  } catch (error) {
+    console.error("Error gathering system information:", error);
+    throw error;
+  }
 }
 
 export { scanHostname_IPs, getEnhancedSystemInfo };

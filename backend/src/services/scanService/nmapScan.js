@@ -10,9 +10,6 @@ const execPromise = util.promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Output file path
-const outputPath = path.join(__dirname, "..", "output", "ports_output.json");
-
 /**
  * Check if nmap is installed
  * @returns {Promise<boolean>} True if nmap is installed
@@ -41,7 +38,7 @@ async function runNmapWithWSL(target) {
 
     // Check if nmap is installed in WSL
     const { stdout: nmapCheck } = await execPromise(
-      "wsl which nmap || echo 'not installed'"
+      'wsl which nmap || echo "not installed"'
     );
     if (nmapCheck.trim() === "not installed") {
       console.log(
@@ -65,9 +62,10 @@ async function runNmapWithWSL(target) {
 /**
  * Function to scan ports with enhanced nmap options
  * @param {string} target - The target to scan (default: 127.0.0.1)
+ * @param {string} options - Additional nmap options
  * @returns {Promise<object>} Scan results
  */
-async function scanPorts(target = "127.0.0.1") {
+async function scanPorts(target = "127.0.0.1", options = "") {
   console.log(`Scanning ports on ${target}`);
   let stdout = "";
   let error = null;
@@ -96,8 +94,9 @@ async function scanPorts(target = "127.0.0.1") {
       // -O: OS detection
       // -T4: Speed template (faster)
       try {
+        const nmapOptions = options || "-sS -sV -O -T4";
         const { stdout: nmapOutput } = await execPromise(
-          `nmap -sS -sV -O -T4 ${target}`
+          `nmap ${nmapOptions} ${target}`
         );
         stdout = nmapOutput;
       } catch (nmapError) {
@@ -111,29 +110,22 @@ async function scanPorts(target = "127.0.0.1") {
     console.error(`Error scanning ports: ${mainError.message}`);
     error = mainError;
     // Create dummy result with error info
-    const results = {
+    return {
       target,
       timestamp: new Date(),
       openPorts: [],
       error: mainError.message,
     };
-    fs.writeFileSync(outputPath, JSON.stringify(results, null, 2));
-    return results;
   }
 
   // Parse the output
-  const results = {
+  return {
     target,
     timestamp: new Date(),
     openPorts: parseNmapOutput(stdout),
     osInfo: parseOsInfo(stdout),
     raw: stdout,
   };
-
-  // Save the results
-  fs.writeFileSync(outputPath, JSON.stringify(results, null, 2));
-
-  return results;
 }
 
 /**
@@ -227,4 +219,4 @@ function parseOsInfo(output) {
   return osInfo;
 }
 
-export { scanPorts, checkNmapInstalled, runNmapWithWSL };
+export { checkNmapInstalled, scanPorts, runNmapWithWSL };

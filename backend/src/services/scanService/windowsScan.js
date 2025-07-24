@@ -2,18 +2,13 @@ import { exec } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import util from "util";
+
+const execPromise = util.promisify(exec);
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Output file path
-const outputPath = path.join(
-  __dirname,
-  "..",
-  "output",
-  "powershell_scan_results.json"
-);
 
 /**
  * Check if running on Windows
@@ -60,6 +55,12 @@ async function runPowerShellScan() {
     // Security settings
     "$firewall = Get-NetFirewallProfile | Select-Object Name, Enabled;",
 
+    // Windows Update status
+    "$updates = Get-HotFix | Select-Object HotFixID, Description, InstalledOn | Sort-Object -Property InstalledOn -Descending | Select-Object -First 10;",
+
+    // Security vulnerabilities
+    "try { $vulnAssessment = Get-MpThreatCatalog | Select-Object -First 10 } catch { $vulnAssessment = 'Not available' }",
+
     // Return as JSON
     "$result = @{",
     "    OSInfo = $os | Select-Object Caption, Version, BuildNumber, OSArchitecture, LastBootUpTime;",
@@ -70,6 +71,8 @@ async function runPowerShellScan() {
     "    IPConfiguration = $ipConfig;",
     "    WindowsFeatures = $features | Select-Object -First 50;",
     "    FirewallProfiles = $firewall;",
+    "    RecentUpdates = $updates;",
+    "    SecurityVulnerabilities = $vulnAssessment;",
     "};",
 
     // Convert to JSON and return
@@ -78,7 +81,7 @@ async function runPowerShellScan() {
 
   return new Promise((resolve, reject) => {
     // Execute PowerShell command
-    const ps = isWindows() ? "powershell.exe" : "pwsh";
+    const ps = "powershell.exe";
 
     exec(
       `${ps} -Command "${psCommands}"`,
@@ -101,9 +104,6 @@ async function runPowerShellScan() {
           // Add timestamp
           results.timestamp = new Date();
 
-          // Save to file
-          fs.writeFileSync(outputPath, JSON.stringify(results, null, 2));
-
           console.log("PowerShell scan completed successfully");
           resolve(results);
         } catch (parseError) {
@@ -116,20 +116,75 @@ async function runPowerShellScan() {
 }
 
 /**
- * Get the latest PowerShell scan results
- * @returns {Promise<object|null>} Latest scan results or null if not available
+ * Extract vulnerability data from Windows scan results
+ * @param {Object} scanResults - PowerShell scan results
+ * @returns {Array} Array of vulnerability objects
  */
-async function getPowerShellResults() {
-  try {
-    if (fs.existsSync(outputPath)) {
-      const data = fs.readFileSync(outputPath, "utf8");
-      return JSON.parse(data);
-    }
-    return null;
-  } catch (error) {
-    console.error("Error reading PowerShell scan results:", error.message);
-    return null;
+function extractWindowsVulnerabilities(scanResults) {
+  const vulnerabilities = [];
+
+  // Check for firewall vulnerabilities
+  if (scanResults.FirewallProfiles) {
+    scanResults.FirewallProfiles.forEach((profile) => {
+      if (!profile.Enabled) {
+        vulnerabilities.push({
+          name: `Windows Firewall ${profile.Name} profile disabled`,
+          type: "configuration",
+          severity: "High",
+          description: `The ${profile.Name} firewall profile is disabled, which may expose the system to network attacks.`,
+          recommendation: `Enable the ${profile.Name} firewall profile using Windows Firewall settings.`,
+        });
+      }
+    });
   }
+
+  // Check for outdated software
+  if (scanResults.Software) {
+    const knownVulnSoftware = [
+      { name: "Adobe Reader", version: "15.0", vulnBelow: "19.0" },
+      { name: "Java", version: "", vulnBelow: "8.0.271" },
+      { name: "Flash Player", version: "", vulnBelow: "32.0" },
+    ];
+
+    scanResults.Software.forEach((sw) => {
+      if (!sw.DisplayName) return;
+
+      knownVulnSoftware.forEach((vuln) => {
+        if (
+          sw.DisplayName.includes(vuln.name) &&
+          sw.DisplayVersion &&
+          parseFloat(sw.DisplayVersion) < parseFloat(vuln.vulnBelow)
+        ) {
+          vulnerabilities.push({
+            name: `Outdated ${vuln.name}`,
+            type: "software",
+            severity: "Medium",
+            description: `${sw.DisplayName} version ${sw.DisplayVersion} is outdated and may contain security vulnerabilities.`,
+            recommendation: `Update ${sw.DisplayName} to the latest version.`,
+          });
+        }
+      });
+    });
+  }
+
+  // Add any security vulnerabilities from the scan
+  if (
+    scanResults.SecurityVulnerabilities &&
+    Array.isArray(scanResults.SecurityVulnerabilities)
+  ) {
+    scanResults.SecurityVulnerabilities.forEach((vuln) => {
+      vulnerabilities.push({
+        name: vuln.ThreatName || "Unknown Threat",
+        type: "security",
+        severity: "Critical",
+        description: vuln.Description || "Windows detected a security threat.",
+        recommendation:
+          "Run Windows Defender full scan and apply all security updates.",
+      });
+    });
+  }
+
+  return vulnerabilities;
 }
 
-export { isWindows, runPowerShellScan, getPowerShellResults };
+export { isWindows, runPowerShellScan, extractWindowsVulnerabilities };

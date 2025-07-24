@@ -2,26 +2,24 @@ import { exec } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import util from "util";
+import { checkWSL } from "./wslTools.js";
+
+const execPromise = util.promisify(exec);
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Paths
-const outputPath = path.join(
-  __dirname,
-  "..",
-  "output",
-  "lynis_scan_results.json"
-);
 
 /**
  * Check if Lynis is installed
  * @returns {Promise<boolean>} True if Lynis is installed
  */
 async function checkLynisInstalled() {
+  const cmd = process.platform === "win32" ? "wsl which lynis" : "which lynis";
+
   return new Promise((resolve) => {
-    exec("which lynis", (error) => {
+    exec(cmd, (error) => {
       if (error) {
         console.log("Lynis not found");
         resolve(false);
@@ -34,15 +32,32 @@ async function checkLynisInstalled() {
 }
 
 /**
- * Run a Lynis scan
- * @returns {Promise<object>} Scan results
+ * Run a Lynis scan on Linux or via WSL
+ * @param {Object} options - Options for the scan
+ * @param {boolean} options.useWSL - Whether to use WSL (auto-detected if not specified)
+ * @returns {Promise<Object>} Scan results
  */
-async function runLynisScan() {
+async function runLynisScan(options = {}) {
   console.log("Starting Lynis scan...");
+  const isWindows = process.platform === "win32";
+
+  // Check if we should use WSL
+  const useWSL =
+    options.useWSL !== undefined
+      ? options.useWSL
+      : isWindows && (await checkWSL());
+
+  if (isWindows && !useWSL) {
+    throw new Error("Lynis scan requires WSL on Windows");
+  }
+
+  const command = useWSL
+    ? "wsl sudo lynis audit system --no-colors"
+    : "sudo lynis audit system --no-colors";
 
   return new Promise((resolve, reject) => {
     // Run Lynis with output redirection
-    exec("lynis audit system --no-colors", (error, stdout, stderr) => {
+    exec(command, (error, stdout, stderr) => {
       if (error && error.code !== 0) {
         console.error("Error during Lynis scan:", error.message);
         reject(error);
@@ -56,35 +71,15 @@ async function runLynisScan() {
       // Parse the output
       const results = parseLynisOutput(stdout);
 
-      // Save results to file
-      fs.writeFileSync(outputPath, JSON.stringify(results, null, 2));
-
       resolve(results);
     });
   });
 }
 
 /**
- * Get the latest Lynis scan results
- * @returns {Promise<object|null>} Latest scan results or null if not available
- */
-async function getLynisResults() {
-  try {
-    if (fs.existsSync(outputPath)) {
-      const data = fs.readFileSync(outputPath, "utf8");
-      return JSON.parse(data);
-    }
-    return null;
-  } catch (error) {
-    console.error("Error reading Lynis scan results:", error.message);
-    return null;
-  }
-}
-
-/**
  * Parse Lynis output into a structured object
  * @param {string} output - Raw Lynis output
- * @returns {object} Structured scan results
+ * @returns {Object} Structured scan results
  */
 function parseLynisOutput(output) {
   const lines = output.split("\n");
@@ -131,9 +126,60 @@ function parseLynisOutput(output) {
     if (testsMatch) {
       results.hardening.tests = parseInt(testsMatch[1], 10);
     }
+
+    // Extract vulnerability findings
+    if (line.includes("Vulnerability")) {
+      const vulnMatch = line.match(/\[(.+)\]\s+(.+)/);
+      if (vulnMatch) {
+        results.vulnerabilities.push({
+          category: vulnMatch[1].trim(),
+          description: vulnMatch[2].trim(),
+        });
+      }
+    }
   }
 
   return results;
 }
 
-export { checkLynisInstalled, runLynisScan, getLynisResults };
+/**
+ * Get severity level for Lynis findings
+ * @param {string} finding - The finding text
+ * @returns {string} Severity level (Critical, High, Medium, Low)
+ */
+function getSeverityLevel(finding) {
+  const lowercaseFinding = finding.toLowerCase();
+
+  if (
+    lowercaseFinding.includes("critical") ||
+    lowercaseFinding.includes("severe vulnerability") ||
+    lowercaseFinding.includes("remote code execution")
+  ) {
+    return "Critical";
+  }
+
+  if (
+    lowercaseFinding.includes("high risk") ||
+    lowercaseFinding.includes("vulnerability") ||
+    lowercaseFinding.includes("unsafe")
+  ) {
+    return "High";
+  }
+
+  if (
+    lowercaseFinding.includes("medium") ||
+    lowercaseFinding.includes("consider") ||
+    lowercaseFinding.includes("recommended")
+  ) {
+    return "Medium";
+  }
+
+  return "Low";
+}
+
+export {
+  checkLynisInstalled,
+  runLynisScan,
+  parseLynisOutput,
+  getSeverityLevel,
+};

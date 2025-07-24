@@ -1,128 +1,122 @@
-# CTEM WebApp - Backend
+# CTEM Backend Architecture
 
-This is the backend service for the CTEM WebApp, which provides APIs for asset management, vulnerability scanning, and integration with DefectDojo.
+This backend simulates a microservices architecture within a single Node.js Express application, where each module handles a different part of the Cyber Threat and Exposure Management (CTEM) workflow.
 
-## Prerequisites
+## Architecture Overview
 
-- Node.js (v14+)
-- Docker
-- Docker Compose
-- npm (v6+)
+The backend is organized into modular services that can be developed and maintained independently:
 
-## Database Setup
+```
+backend/
+├── prisma/              # Prisma schema and migrations
+├── src/
+│   ├── core/            # Core application components
+│   │   ├── server.js    # Main Express server
+│   │   ├── database/    # Database configuration
+│   │   └── services/    # Core services (like database management)
+│   ├── services/        # Business logic services
+│   │   ├── assetService/  # Asset management
+│   │   ├── scanService/   # Scanning tools
+│   │   ├── parserService/ # Raw output parsing
+│   │   ├── defectDojoService/ # DefectDojo integration
+│   │   └── reportService/ # Report generation
+│   ├── routes/          # API routes
+│   ├── utils/           # Shared utilities
+│   └── scripts/         # Database and other scripts
+```
 
-The application is configured to automatically manage the PostgreSQL database using Docker Compose:
+## Services
 
-1. **Automatic Database Management**:
+### 1. Asset Service
 
-   - When you start the server with `npm start` or `npm run dev`, the PostgreSQL database container will automatically start
-   - When you stop the server (Ctrl+C), the database container will automatically stop
-   - No manual setup required!
+Handles asset management, including CRUD operations for assets in PostgreSQL.
 
-2. **Manual Database Control**:
+### 2. Scan Service
 
-   ```bash
-   # Start PostgreSQL container manually
-   npm run db:start
+Orchestrates scanning tools:
 
-   # Stop PostgreSQL container manually
-   npm run db:stop
+- Nmap for port, OS, and service detection
+- Lynis for local security audit (via WSL on Windows)
+- PowerShell for Windows-specific information
+- System information collection
 
-   # Direct Docker Compose commands
-   npm run docker:up       # Start containers
-   npm run docker:down     # Stop and remove containers
-   npm run docker:build    # Rebuild containers
-   npm run docker:logs     # View PostgreSQL logs
-   npm run docker:restart  # Restart PostgreSQL
-   ```
+### 3. Parser Service
 
-3. **Custom Database Configuration**:
-   - Default configuration is specified in `docker-compose.yml` and `docker/postgres/Dockerfile`
-   - PostgreSQL config can be customized in `docker/postgres/postgresql.conf`
-   - Database initialization scripts are in `docker/postgres/init-scripts/`
+Processes raw scan outputs:
 
-## Installation
+- Extracts structured data from Nmap, Lynis, and PowerShell scans
+- Maps findings to the asset data model
+- Calculates health scores and risk metrics
+
+### 4. DefectDojo Service
+
+Integrates with DefectDojo:
+
+- Exports findings to DefectDojo
+- Imports vulnerability status updates
+- Syncs remediation status
+
+### 5. Report Service
+
+Generates downloadable reports in various formats:
+
+- JSON for programmatic use
+- Markdown for human-readable documentation
+- PDF support can be added as needed
+
+## Data Flow
+
+The typical workflow is:
+
+1. Asset is created or imported via the Asset Service
+2. Scan is triggered against the asset via the Scan Service
+3. Raw scan outputs are saved to the filesystem
+4. Parser Service processes the outputs into structured data
+5. Structured data is stored in PostgreSQL
+6. Optional: Findings are exported to DefectDojo
+7. Optional: Reports are generated for remediation
+
+## Database
+
+PostgreSQL is used for persistence, with these key models:
+
+- Asset: Core entity representing systems and devices
+- Service: Network services running on assets
+- Application: Software installed on assets
+- Vulnerability: Security findings linked to assets
+
+## Getting Started
 
 1. Install dependencies:
 
-   ```bash
+   ```
    npm install
    ```
 
-2. Build the Docker containers:
+2. Start the database:
 
-   ```bash
-   npm run docker:build
+   ```
+   npm run db:start
    ```
 
-3. Initialize database (first time setup):
+3. Initialize the database:
 
-   ```bash
-   npm run docker:up
+   ```
    npm run db:reset
    npm run db:seed
    ```
 
-4. Start the server (will also start the database):
-   ```bash
+4. Start the server:
+   ```
    npm run dev
    ```
 
-## Available Scripts
+## API Endpoints
 
-- `npm start` - Start the production server (and database)
-- `npm run dev` - Start the development server with hot reloading (and database)
-- `npm run db:seed` - Seed the database with initial data
-- `npm run db:reset` - Reset the database (drop and recreate all tables)
-- `npm run db:migrate` - Run any pending migrations
-- `npm run db:start` - Start the database container manually
-- `npm run db:stop` - Stop the database container manually
-- `npm run docker:build` - Build Docker containers
-- `npm run docker:up` - Start Docker containers
-- `npm run docker:down` - Stop and remove Docker containers
-- `npm run docker:logs` - View PostgreSQL logs
-- `npm run docker:restart` - Restart PostgreSQL container
+See the corresponding route files for detailed API documentation:
 
-## Database Management
-
-The application uses Sequelize as an ORM and manages database schema through model definitions. When you start the server in development mode, it will automatically sync the schema with your database.
-
-### Creating Migrations
-
-```bash
-npx sequelize-cli migration:generate --name migration-name
-```
-
-### Running Migrations
-
-```bash
-npm run db:migrate
-```
-
-## DefectDojo Integration
-
-The application supports integration with DefectDojo for vulnerability management. To configure:
-
-1. Configure DefectDojo settings via the API or directly in the database
-2. Map vulnerabilities between the CTEM WebApp and DefectDojo using the defined models
-
-## API Documentation
-
-API endpoints are available at:
-
-- `GET /api/assets` - List all assets
-- `GET /api/assets/:id` - Get specific asset
-- `POST /api/assets` - Create new asset
-- `PUT /api/assets/:id` - Update asset
-- `DELETE /api/assets/:id` - Delete asset
-- `POST /api/scan/start` - Start a new scan
-- `GET /api/scan/latest` - Get latest scan results
-
-## Docker Architecture
-
-The Docker setup includes:
-
-- **PostgreSQL** - Database for storing assets, vulnerabilities, and other data
-- **Custom Configuration** - PostgreSQL configuration optimized for the application
-- **Volume Persistence** - Data is stored in Docker volumes for persistence
-- **Health Checks** - Container health monitoring to ensure database availability
+- `/api/assets` - Asset management
+- `/api/scan` - Scanning operations
+- `/api/parser` - Raw output parsing
+- `/api/defectdojo` - DefectDojo integration
+- `/api/reports` - Report generation and download

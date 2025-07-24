@@ -1,6 +1,6 @@
 import { exec } from "child_process";
 import util from "util";
-import prisma from "../utils/prisma.js";
+import prisma from "../core/database/prisma.js";
 
 const execAsync = util.promisify(exec);
 

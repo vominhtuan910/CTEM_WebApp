@@ -3,7 +3,7 @@ services:
     build:
       context: ./docker/postgres
       dockerfile: Dockerfile
-    container_name: ctem-postgres
+    container_name: ctem_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres

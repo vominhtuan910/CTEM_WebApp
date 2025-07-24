@@ -1,4 +1,4 @@
-import { startDatabase } from "../utils/databaseManager.js";
+import { startDatabase } from "../core/services/databaseManager.js";
 
 // Function to start the database standalone
 async function startDatabaseStandalone() {

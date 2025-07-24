@@ -1,5 +1,5 @@
 // Import required modules
-import prisma from "../utils/prisma.js";
+import prisma from "../core/database/prisma.js";
 
 // Define sample assets
 const sampleAssets = [

@@ -1,4 +1,4 @@
-import { stopDatabase } from "../utils/databaseManager.js";
+import { stopDatabase } from "../core/services/databaseManager.js";
 
 // Function to stop the database standalone
 async function stopDatabaseStandalone() {

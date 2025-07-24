@@ -1,0 +1,187 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// Asset model
+model Asset {
+    id              String               @id @default(uuid())
+    hostname        String
+    name            String?
+    ipAddress       String
+    ipAddresses     String[]             @default([])
+    status          AssetStatus          @default(active)
+    lastScan        DateTime?
+    healthScore     Float?
+    issuesCount     Int                  @default(0)
+    labels          String[]             @default([])
+    agentStatus     AgentStatus          @default(not_installed)
+    // OS details
+    osName          String?
+    osVersion       String?
+    osArchitecture  String?
+    osBuildNumber   String?
+    osLastBootTime  DateTime?
+    // Priority/risk info
+    confidentiality Int                  @default(1)
+    integrity       Int                  @default(1)
+    availability    Int                  @default(1)
+    // Additional fields
+    department      String?
+    location        String?
+    owner           String?
+    createdAt       DateTime             @default(now())
+    updatedAt       DateTime             @updatedAt
+    // Relationships
+    services        Service[]
+    applications    Application[]
+    vulnerabilities AssetVulnerability[]
+
+    @@map("assets")
+}
+
+// Service model
+model Service {
+    id          String   @id @default(uuid())
+    name        String
+    displayName String?
+    status      String?
+    port        Int?
+    protocol    String?
+    version     String?
+    description String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    // Relationships
+    asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+    assetId String
+
+    @@map("services")
+}
+
+// Application model
+model Application {
+    id          String    @id @default(uuid())
+    name        String
+    version     String?
+    publisher   String?
+    installDate DateTime?
+    type        String?
+    description String?
+    path        String?
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+
+    // Relationships
+    asset           Asset                      @relation(fields: [assetId], references: [id], onDelete: Cascade)
+    assetId         String
+    vulnerabilities ApplicationVulnerability[]
+
+    @@map("applications")
+}
+
+// Vulnerability model
+model Vulnerability {
+    id               String        @id @default(uuid())
+    name             String
+    type             String
+    cvssScore        Float
+    severityLevel    SeverityLevel
+    discoveryDate    DateTime
+    status           FixStatus     @default(Not_Fixed)
+    description      String        @db.Text
+    recommendations  String?       @db.Text
+    cveReferences    String[]      @default([])
+    vector           String?
+    exploitAvailable Boolean       @default(false)
+    patchAvailable   Boolean       @default(false)
+    assignedTo       String?
+    lastUpdated      DateTime?
+    tags             String[]      @default([])
+    // DefectDojo integration
+    defectDojoId     Int?
+    defectDojoUrl    String?
+    createdAt        DateTime      @default(now())
+    updatedAt        DateTime      @updatedAt
+
+    // Relationships
+    assets       AssetVulnerability[]
+    applications ApplicationVulnerability[]
+
+    @@map("vulnerabilities")
+}
+
+// Junction tables for many-to-many relationships
+model AssetVulnerability {
+    asset           Asset         @relation(fields: [assetId], references: [id], onDelete: Cascade)
+    assetId         String
+    vulnerability   Vulnerability @relation(fields: [vulnerabilityId], references: [id], onDelete: Cascade)
+    vulnerabilityId String
+    createdAt       DateTime      @default(now())
+    updatedAt       DateTime      @updatedAt
+
+    @@id([assetId, vulnerabilityId])
+    @@map("asset_vulnerabilities")
+}
+
+model ApplicationVulnerability {
+    application     Application   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+    applicationId   String
+    vulnerability   Vulnerability @relation(fields: [vulnerabilityId], references: [id], onDelete: Cascade)
+    vulnerabilityId String
+    createdAt       DateTime      @default(now())
+    updatedAt       DateTime      @updatedAt
+
+    @@id([applicationId, vulnerabilityId])
+    @@map("application_vulnerabilities")
+}
+
+// DefectDojo Integration model
+model DefectDojoIntegration {
+    id           String    @id @default(uuid())
+    apiKey       String
+    url          String
+    username     String
+    projectId    Int?
+    productId    Int?
+    engagementId Int?
+    isActive     Boolean   @default(true)
+    lastSyncDate DateTime?
+    createdAt    DateTime  @default(now())
+    updatedAt    DateTime  @updatedAt
+
+    @@map("defectdojo_integrations")
+}
+
+// Enums
+enum AssetStatus {
+    active
+    inactive
+}
+
+enum AgentStatus {
+    installed
+    not_installed
+    error
+}
+
+enum SeverityLevel {
+    Critical
+    High
+    Medium
+    Low
+}
+
+enum FixStatus {
+    Fixed
+    Not_Fixed
+    In_Progress
+}
