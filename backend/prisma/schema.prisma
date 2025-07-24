@@ -29,6 +29,8 @@ model Asset {
     osArchitecture  String?
     osBuildNumber   String?
     osLastBootTime  DateTime?
+    osPlatform      String? // win32, linux, darwin
+    osKernelVersion String?
     // Priority/risk info
     confidentiality Int                  @default(1)
     integrity       Int                  @default(1)
@@ -43,20 +45,23 @@ model Asset {
     services        Service[]
     applications    Application[]
     vulnerabilities AssetVulnerability[]
+    securityMetrics SecurityMetric?
+    ScanHistory     ScanHistory[]
 
     @@map("assets")
 }
 
-// Service model
+// Service model - now accounts for both network services and system services
 model Service {
     id          String   @id @default(uuid())
     name        String
     displayName String?
-    status      String?
-    port        Int?
-    protocol    String?
+    status      String? // running, stopped, etc.
+    port        Int? // Only for network services
+    protocol    String? // Only for network services
     version     String?
     description String?
+    serviceType String? // system_service, network_service, etc.
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
 
@@ -86,6 +91,22 @@ model Application {
     vulnerabilities ApplicationVulnerability[]
 
     @@map("applications")
+}
+
+// Security Metric model for tracking security-related data
+model SecurityMetric {
+    id             String   @id @default(uuid())
+    hardeningIndex Int      @default(0)
+    lastScanDate   DateTime @default(now())
+    findingsCount  Int      @default(0)
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+
+    // Relationships
+    asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+    assetId String @unique
+
+    @@map("security_metrics")
 }
 
 // Vulnerability model
@@ -159,6 +180,25 @@ model DefectDojoIntegration {
     updatedAt    DateTime  @updatedAt
 
     @@map("defectdojo_integrations")
+}
+
+// Scan History model to track scan execution
+model ScanHistory {
+    id         String   @id @default(uuid())
+    scanId     String // The scan ID from the scan report
+    scanType   String // windows, linux, nmap, lynis, etc.
+    timestamp  DateTime
+    target     String
+    status     String // completed, failed, partial
+    resultPath String? // Path to the scan result file
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    // Relationships
+    asset   Asset?  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+    assetId String?
+
+    @@map("scan_history")
 }
 
 // Enums

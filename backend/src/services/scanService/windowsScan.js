@@ -20,171 +20,143 @@ function isWindows() {
 
 /**
  * Run PowerShell scan for Windows systems
+ * @param {Object} options - Scan options
+ * @param {boolean} options.scanPackages - Whether to scan installed packages
  * @returns {Promise<object>} Scan results
  */
-async function runPowerShellScan() {
+async function runPowerShellScan(options = {}) {
   if (!isWindows()) {
     throw new Error("PowerShell scan is only available on Windows systems");
   }
 
-  console.log("Starting PowerShell scan...");
+  const { scanPackages = false } = options;
+  console.log("Starting PowerShell scan...", { scanPackages });
 
-  // Create an array of PowerShell commands to gather system information
-  const psCommands = [
-    // OS information
-    "$os = Get-CimInstance Win32_OperatingSystem;",
+  // PowerShell command that outputs clean JSON directly
+  const psCommand = `
+    # Force output to be UTF8 to avoid encoding issues
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-    // Computer system information
-    "$cs = Get-CimInstance Win32_ComputerSystem;",
+    # OS information
+    $os = Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber, OSArchitecture, @{Name='LastBootUpTime';Expression={$_.LastBootUpTime.ToString('o')}}
 
-    // Running services
-    '$services = Get-Service | Where-Object {$_.Status -eq "Running"} | Select-Object Name, DisplayName;',
+    # Computer system information
+    $cs = Get-CimInstance Win32_ComputerSystem | Select-Object Name, Manufacturer, Model, TotalPhysicalMemory, SystemType
 
-    // Installed software
-    "$software = Get-ItemProperty HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate | Where-Object {$_.DisplayName};",
+    # Running services - use single quotes to avoid parsing issues
+    $services = Get-Service | Where-Object {$_.Status -eq 'Running'} | Select-Object Name, DisplayName
 
-    // Network adapters
-    "$adapters = Get-NetAdapter | Select-Object Name, InterfaceDescription, Status, MacAddress, LinkSpeed;",
+    ${
+      scanPackages
+        ? `
+    # Installed software
+    $software = Get-ItemProperty HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* | Where-Object {$_.DisplayName} | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate
+    `
+        : `
+    # Software scanning disabled
+    $software = @()
+    `
+    }
 
-    // IP configuration
-    "$ipConfig = Get-NetIPAddress | Select-Object InterfaceAlias, AddressFamily, IPAddress, PrefixLength;",
+    # Network adapters
+    $adapters = Get-NetAdapter | Select-Object Name, InterfaceDescription, Status, MacAddress, LinkSpeed
 
-    // Windows features
-    '$features = Get-WindowsOptionalFeature -Online | Where-Object {$_.State -eq "Enabled"} | Select-Object FeatureName;',
+    # IP configuration
+    $ipConfig = Get-NetIPAddress | Select-Object InterfaceAlias, AddressFamily, IPAddress, PrefixLength
 
-    // Security settings
-    "$firewall = Get-NetFirewallProfile | Select-Object Name, Enabled;",
+    # Windows features - with error handling for elevation requirement
+    try {
+        $features = Get-WindowsOptionalFeature -Online | Where-Object {$_.State -eq 'Enabled'} | Select-Object FeatureName
+    } catch {
+        $features = @()
+        Write-Warning "Could not get Windows features. Administrator privileges required."
+    }
 
-    // Windows Update status
-    "$updates = Get-HotFix | Select-Object HotFixID, Description, InstalledOn | Sort-Object -Property InstalledOn -Descending | Select-Object -First 10;",
+    # Security settings
+    $firewall = Get-NetFirewallProfile | Select-Object Name, Enabled
 
-    // Security vulnerabilities
-    "try { $vulnAssessment = Get-MpThreatCatalog | Select-Object -First 10 } catch { $vulnAssessment = 'Not available' }",
+    # Windows Update status
+    $updates = Get-HotFix | Select-Object HotFixID, Description, InstalledOn | Sort-Object -Property InstalledOn -Descending | Select-Object -First 10
 
-    // Return as JSON
-    "$result = @{",
-    "    OSInfo = $os | Select-Object Caption, Version, BuildNumber, OSArchitecture, LastBootUpTime;",
-    "    ComputerSystem = $cs | Select-Object Name, Manufacturer, Model, TotalPhysicalMemory, SystemType;",
-    "    Services = $services;",
-    "    Software = $software | Select-Object -First 50;",
-    "    NetworkAdapters = $adapters;",
-    "    IPConfiguration = $ipConfig;",
-    "    WindowsFeatures = $features | Select-Object -First 50;",
-    "    FirewallProfiles = $firewall;",
-    "    RecentUpdates = $updates;",
-    "    SecurityVulnerabilities = $vulnAssessment;",
-    "};",
+    # Security vulnerabilities
+    try { 
+        $vulnAssessment = Get-MpThreatCatalog | Select-Object -First 10 
+    } catch { 
+        $vulnAssessment = @{Status = 'Not available'; Reason = $_.Exception.Message}
+    }
 
-    // Convert to JSON and return
-    "ConvertTo-Json -InputObject $result -Depth 4 -Compress",
-  ].join(" ");
+    # Create result object
+    $result = @{
+        OSInfo = $os
+        ComputerSystem = $cs
+        Services = $services | Select-Object -First 50
+        Software = $software ${scanPackages ? "| Select-Object -First 50" : ""}
+        NetworkAdapters = $adapters
+        IPConfiguration = $ipConfig
+        WindowsFeatures = $features | Select-Object -First 50
+        FirewallProfiles = $firewall
+        RecentUpdates = $updates
+        SecurityVulnerabilities = $vulnAssessment
+        PackagesScanDisabled = ${!scanPackages ? "$true" : "$false"}
+    }
+
+    # Convert to clean JSON without BOM or XML artifacts
+    $jsonResult = ConvertTo-Json -InputObject $result -Depth 4 -Compress
+    
+    # Output just the JSON
+    Write-Output $jsonResult
+  `;
+
+  // Write the script to a temp file to avoid command line escaping issues
+  const tempScriptPath = path.join(__dirname, "temp_ps_scan.ps1");
+  fs.writeFileSync(tempScriptPath, psCommand);
 
   return new Promise((resolve, reject) => {
-    // Execute PowerShell command
+    // Execute PowerShell script from file with UTF8 encoding
     const ps = "powershell.exe";
+    const command = `${ps} -ExecutionPolicy Bypass -File "${tempScriptPath}" -OutputFormat Text`;
 
-    exec(
-      `${ps} -Command "${psCommands}"`,
-      { maxBuffer: 1024 * 1024 * 10 },
-      (error, stdout, stderr) => {
-        if (error) {
-          console.error("PowerShell scan error:", error.message);
-          reject(error);
-          return;
-        }
-
-        if (stderr && stderr.trim() !== "") {
-          console.warn("PowerShell stderr:", stderr);
-        }
-
-        try {
-          // Parse JSON output
-          const results = JSON.parse(stdout);
-
-          // Add timestamp
-          results.timestamp = new Date();
-
-          console.log("PowerShell scan completed successfully");
-          resolve(results);
-        } catch (parseError) {
-          console.error("Error parsing PowerShell output:", parseError.message);
-          reject(parseError);
-        }
+    exec(command, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+      // Clean up temp file
+      try {
+        fs.unlinkSync(tempScriptPath);
+      } catch (e) {
+        console.warn("Could not delete temp script:", e.message);
       }
-    );
+
+      if (error) {
+        console.error("PowerShell scan error:", error.message);
+        reject(error);
+        return;
+      }
+
+      if (stderr && stderr.trim() !== "") {
+        console.warn("PowerShell stderr:", stderr);
+      }
+
+      try {
+        // Ensure we're getting clean JSON by trimming any extra output
+        const jsonStart = stdout.indexOf("{");
+        const jsonEnd = stdout.lastIndexOf("}") + 1;
+
+        if (jsonStart === -1 || jsonEnd === 0) {
+          throw new Error("Could not find valid JSON in PowerShell output");
+        }
+
+        const jsonString = stdout.substring(jsonStart, jsonEnd);
+        const results = JSON.parse(jsonString);
+
+        // Add timestamp
+        results.timestamp = new Date();
+
+        console.log("PowerShell scan completed successfully");
+        resolve(results);
+      } catch (parseError) {
+        console.error("Error parsing PowerShell output:", parseError.message);
+        reject(parseError);
+      }
+    });
   });
 }
 
-/**
- * Extract vulnerability data from Windows scan results
- * @param {Object} scanResults - PowerShell scan results
- * @returns {Array} Array of vulnerability objects
- */
-function extractWindowsVulnerabilities(scanResults) {
-  const vulnerabilities = [];
-
-  // Check for firewall vulnerabilities
-  if (scanResults.FirewallProfiles) {
-    scanResults.FirewallProfiles.forEach((profile) => {
-      if (!profile.Enabled) {
-        vulnerabilities.push({
-          name: `Windows Firewall ${profile.Name} profile disabled`,
-          type: "configuration",
-          severity: "High",
-          description: `The ${profile.Name} firewall profile is disabled, which may expose the system to network attacks.`,
-          recommendation: `Enable the ${profile.Name} firewall profile using Windows Firewall settings.`,
-        });
-      }
-    });
-  }
-
-  // Check for outdated software
-  if (scanResults.Software) {
-    const knownVulnSoftware = [
-      { name: "Adobe Reader", version: "15.0", vulnBelow: "19.0" },
-      { name: "Java", version: "", vulnBelow: "8.0.271" },
-      { name: "Flash Player", version: "", vulnBelow: "32.0" },
-    ];
-
-    scanResults.Software.forEach((sw) => {
-      if (!sw.DisplayName) return;
-
-      knownVulnSoftware.forEach((vuln) => {
-        if (
-          sw.DisplayName.includes(vuln.name) &&
-          sw.DisplayVersion &&
-          parseFloat(sw.DisplayVersion) < parseFloat(vuln.vulnBelow)
-        ) {
-          vulnerabilities.push({
-            name: `Outdated ${vuln.name}`,
-            type: "software",
-            severity: "Medium",
-            description: `${sw.DisplayName} version ${sw.DisplayVersion} is outdated and may contain security vulnerabilities.`,
-            recommendation: `Update ${sw.DisplayName} to the latest version.`,
-          });
-        }
-      });
-    });
-  }
-
-  // Add any security vulnerabilities from the scan
-  if (
-    scanResults.SecurityVulnerabilities &&
-    Array.isArray(scanResults.SecurityVulnerabilities)
-  ) {
-    scanResults.SecurityVulnerabilities.forEach((vuln) => {
-      vulnerabilities.push({
-        name: vuln.ThreatName || "Unknown Threat",
-        type: "security",
-        severity: "Critical",
-        description: vuln.Description || "Windows detected a security threat.",
-        recommendation:
-          "Run Windows Defender full scan and apply all security updates.",
-      });
-    });
-  }
-
-  return vulnerabilities;
-}
-
-export { isWindows, runPowerShellScan, extractWindowsVulnerabilities };
+export { isWindows, runPowerShellScan };

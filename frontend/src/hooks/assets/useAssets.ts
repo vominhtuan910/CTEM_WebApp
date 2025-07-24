@@ -1,126 +1,154 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Asset, AssetFilter } from "../../types/asset.types";
-import toast from "react-hot-toast";
-import { api } from "../../services/api";
+import { assetApi } from "../../services/api";
+import { toast } from "react-hot-toast";
 
 export const useAssets = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [filteredAssets, setFilteredAssets] = useState<Asset[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [filters, setFilters] = useState<AssetFilter>({
+    search: "",
+    status: ["active", "inactive"],
+    osType: [],
+  });
   const [availableOsTypes, setAvailableOsTypes] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  useEffect(() => {
-    // Fetch assets when the component mounts
-    fetchAssets();
-    fetchOsTypes();
-  }, []);
-
-  const fetchAssets = async () => {
-    setLoading(true);
+  // Fetch assets from the API
+  const fetchAssets = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const data = await api.assets.getAll();
+      const data = await assetApi.getAll();
       setAssets(data);
-    } catch (error) {
-      console.error("Error fetching assets:", error);
+
+      // Extract unique OS types for filtering
+      const osTypes = [
+        ...new Set(data.map((asset: Asset) => asset.os.name)),
+      ].filter(Boolean) as string[];
+      setAvailableOsTypes(osTypes);
+
+      // Apply any existing filters
+      const filtered = filterAssets(data, filters);
+      setFilteredAssets(filtered);
+    } catch (err) {
+      console.error("Error fetching assets:", err);
+      setError(err as Error);
       toast.error("Failed to load assets");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
+  }, [filters]);
 
-  const fetchOsTypes = async () => {
-    try {
-      const osTypes = await api.assets.getOsTypes();
-      setAvailableOsTypes(osTypes);
-    } catch (error) {
-      console.error("Error fetching OS types:", error);
-      // Fallback to default OS types
-      setAvailableOsTypes(["Windows", "Linux", "macOS"]);
-    }
-  };
-
+  // Add a new asset
   const addAsset = async (assetData: Partial<Asset>): Promise<boolean> => {
+    setIsSubmitting(true);
     try {
-      setSubmitting(true);
-      const newAsset = await api.assets.create(assetData);
-      setAssets((prevAssets) => [...prevAssets, newAsset]);
-      toast.success("Asset added successfully");
+      await assetApi.create(assetData);
+      toast.success("Asset created successfully");
+      fetchAssets(); // Refresh the asset list
       return true;
-    } catch (error) {
-      toast.error("Failed to add asset");
-      console.error("Error adding asset:", error);
+    } catch (err) {
+      console.error("Error adding asset:", err);
+      toast.error("Failed to create asset");
       return false;
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
+  // Update an existing asset
   const updateAsset = async (
     id: string,
     assetData: Partial<Asset>
   ): Promise<boolean> => {
+    setIsSubmitting(true);
     try {
-      setSubmitting(true);
-      const updatedAsset = await api.assets.update(id, assetData);
-
-      setAssets((prevAssets) =>
-        prevAssets.map((asset) => (asset.id === id ? updatedAsset : asset))
-      );
-
+      await assetApi.update(id, assetData);
       toast.success("Asset updated successfully");
+      fetchAssets(); // Refresh the asset list
       return true;
-    } catch (error) {
+    } catch (err) {
+      console.error("Error updating asset:", err);
       toast.error("Failed to update asset");
-      console.error("Error updating asset:", error);
       return false;
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
+  // Delete an asset
   const deleteAsset = async (id: string): Promise<boolean> => {
+    setIsSubmitting(true);
     try {
-      setSubmitting(true);
-      await api.assets.delete(id);
-      setAssets((prevAssets) => prevAssets.filter((asset) => asset.id !== id));
+      await assetApi.delete(id);
       toast.success("Asset deleted successfully");
+      fetchAssets(); // Refresh the asset list
       return true;
-    } catch (error) {
+    } catch (err) {
+      console.error("Error deleting asset:", err);
       toast.error("Failed to delete asset");
-      console.error("Error deleting asset:", error);
       return false;
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
+  // Filter assets based on search, status, and OS type
   const filterAssets = (assets: Asset[], filters: AssetFilter): Asset[] => {
     return assets.filter((asset) => {
-      const matchesSearch =
+      // Filter by search term
+      const searchMatch =
         !filters.search ||
         asset.hostname.toLowerCase().includes(filters.search.toLowerCase()) ||
-        asset.ipAddress.toLowerCase().includes(filters.search.toLowerCase());
+        asset.ipAddress.toLowerCase().includes(filters.search.toLowerCase()) ||
+        (asset.name &&
+          asset.name.toLowerCase().includes(filters.search.toLowerCase()));
 
-      const matchesStatus =
+      // Filter by status
+      const statusMatch =
         filters.status.length === 0 || filters.status.includes(asset.status);
 
-      const matchesOsType =
-        filters.osType.length === 0 ||
-        (asset.os && filters.osType.includes(asset.os.name));
+      // Filter by OS type
+      const osTypeMatch =
+        filters.osType.length === 0 || filters.osType.includes(asset.os.name);
 
-      return matchesSearch && matchesStatus && matchesOsType;
+      return searchMatch && statusMatch && osTypeMatch;
     });
   };
 
+  // Update filters and re-filter assets
+  const updateFilters = useCallback(
+    (newFilters: Partial<AssetFilter>) => {
+      setFilters((prev) => {
+        const updated = { ...prev, ...newFilters };
+        const filtered = filterAssets(assets, updated);
+        setFilteredAssets(filtered);
+        return updated;
+      });
+    },
+    [assets]
+  );
+
+  // Initial fetch
+  useEffect(() => {
+    fetchAssets();
+  }, [fetchAssets]);
+
   return {
     assets,
-    loading,
-    submitting,
+    filteredAssets,
+    isLoading,
+    error,
+    filters,
+    updateFilters,
     availableOsTypes,
-    fetchAssets,
     addAsset,
     updateAsset,
     deleteAsset,
-    filterAssets,
+    isSubmitting,
+    refreshAssets: fetchAssets,
   };
 };

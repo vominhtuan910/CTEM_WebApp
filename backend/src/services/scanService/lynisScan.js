@@ -32,48 +32,53 @@ async function checkLynisInstalled() {
 }
 
 /**
- * Run a Lynis scan on Linux or via WSL
- * @param {Object} options - Options for the scan
- * @param {boolean} options.useWSL - Whether to use WSL (auto-detected if not specified)
+ * Run Lynis security scan
+ * @param {Object} options - Scan options
+ * @param {boolean} options.scanPackages - Whether to scan installed packages (default: false)
  * @returns {Promise<Object>} Scan results
  */
 async function runLynisScan(options = {}) {
-  console.log("Starting Lynis scan...");
-  const isWindows = process.platform === "win32";
+  const { scanPackages = false } = options;
 
-  // Check if we should use WSL
-  const useWSL =
-    options.useWSL !== undefined
-      ? options.useWSL
-      : isWindows && (await checkWSL());
+  try {
+    // Check if Lynis is installed
+    const lynisInstalled = await checkLynisInstalled();
+    if (!lynisInstalled) {
+      throw new Error("Lynis is not installed");
+    }
 
-  if (isWindows && !useWSL) {
-    throw new Error("Lynis scan requires WSL on Windows");
+    console.log("Running Lynis security scan...");
+
+    // Determine if we need to run in WSL
+    const isWindows = process.platform === "win32";
+    let stdout = "";
+
+    if (isWindows) {
+      // Run in WSL
+      const command = scanPackages
+        ? "lynis audit system --quiet --no-colors"
+        : "lynis audit system --quick --quiet --no-colors";
+      stdout = await execInWSL(command);
+    } else {
+      // Run directly
+      const command = scanPackages
+        ? "lynis audit system --quiet --no-colors"
+        : "lynis audit system --quick --quiet --no-colors";
+      const { stdout: output } = await execPromise(command);
+      stdout = output;
+    }
+
+    // Parse Lynis output
+    const results = parseLynisOutput(stdout);
+
+    // Add a flag to indicate if package scanning was disabled
+    results.packageScanDisabled = !scanPackages;
+
+    return results;
+  } catch (error) {
+    console.error("Error running Lynis scan:", error.message);
+    throw error;
   }
-
-  const command = useWSL
-    ? "wsl sudo lynis audit system --no-colors"
-    : "sudo lynis audit system --no-colors";
-
-  return new Promise((resolve, reject) => {
-    // Run Lynis with output redirection
-    exec(command, (error, stdout, stderr) => {
-      if (error && error.code !== 0) {
-        console.error("Error during Lynis scan:", error.message);
-        reject(error);
-        return;
-      }
-
-      if (stderr) {
-        console.warn("Warnings during Lynis scan:", stderr);
-      }
-
-      // Parse the output
-      const results = parseLynisOutput(stdout);
-
-      resolve(results);
-    });
-  });
 }
 
 /**

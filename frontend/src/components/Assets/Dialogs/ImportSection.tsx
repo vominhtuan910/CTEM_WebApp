@@ -62,10 +62,10 @@ const ImportSection: React.FC<ImportSectionProps> = ({
   const handleFileSelect = (file: File | null) => {
     if (!file) return;
 
-    // Check file type
+    // Check file type - only accept JSON files
     const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith(".csv") && !fileName.endsWith(".json")) {
-      toast.error("Only CSV or JSON files are allowed");
+    if (!fileName.endsWith(".json")) {
+      toast.error("Only JSON files are allowed");
       return;
     }
 
@@ -211,7 +211,7 @@ const ImportSection: React.FC<ImportSectionProps> = ({
             bgcolor: importState.isDragging
               ? (theme) => alpha(theme.palette.primary.main, 0.05)
               : "background.paper",
-            p: 3,
+            p: 4,
             textAlign: "center",
             transition: "all 0.2s ease-in-out",
             cursor: "pointer",
@@ -229,23 +229,23 @@ const ImportSection: React.FC<ImportSectionProps> = ({
             type="file"
             ref={fileInputRef}
             style={{ display: "none" }}
-            accept=".csv,.json"
+            accept=".json"
             onChange={handleFileInputChange}
           />
           <CloudUpload
             sx={{
-              fontSize: 48,
+              fontSize: 64,
               color: importState.isDragging ? "primary.main" : "text.secondary",
               mb: 2,
             }}
           />
-          <Typography variant="h6" gutterBottom>
+          <Typography variant="h5" gutterBottom>
             {importState.isDragging
               ? "Drop file here"
-              : "Drag & Drop a file here or click to browse"}
+              : "Drag & Drop a JSON file here or click to browse"}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Supports CSV and JSON formats, max 5MB
+            Supports JSON format only, max 5MB
           </Typography>
         </Box>
       )}

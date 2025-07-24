@@ -1,14 +1,14 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
-import AppLayout from './components/Layout/AppLayout';
-import Dashboard from './pages/Dashboard';
-import Assets from './pages/Assets';
-import Issues from './pages/Issues';
+import { Routes, Route, Navigate } from "react-router-dom";
+import AppLayout from "./components/Layout/AppLayout";
+import Dashboard from "./pages/Dashboard";
+import Assets from "./pages/Assets";
+import Issues from "./pages/Issues";
 
 const App: React.FC = () => {
   return (
     <Routes>
       <Route path="/" element={<AppLayout />}>
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<Navigate to="/assets" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="issues" element={<Issues />} />
         <Route path="assets" element={<Assets />} />

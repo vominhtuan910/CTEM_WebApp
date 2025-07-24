@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Asset } from "../../types/asset.types";
-import toast from "react-hot-toast";
+import { toast } from "react-hot-toast";
 
 interface ExportOptions {
   services: boolean;
@@ -14,17 +14,20 @@ interface ExportDialogState {
 }
 
 export const useAssetExport = () => {
-  const [exportDialog, setExportDialog] = useState<ExportDialogState>({
-    open: false,
-    asset: null,
-    options: {
-      services: true,
-      applications: true,
-    },
-  });
+  const [exportDialogState, setExportDialogState] = useState<ExportDialogState>(
+    {
+      open: false,
+      asset: null,
+      options: {
+        services: true,
+        applications: true,
+      },
+    }
+  );
 
+  // Open export dialog with selected asset
   const openExportDialog = (asset: Asset) => {
-    setExportDialog({
+    setExportDialogState({
       open: true,
       asset,
       options: {
@@ -34,72 +37,85 @@ export const useAssetExport = () => {
     });
   };
 
+  // Close export dialog
   const closeExportDialog = () => {
-    setExportDialog((prev) => ({
-      ...prev,
+    setExportDialogState({
+      ...exportDialogState,
       open: false,
-    }));
+    });
   };
 
+  // Update export options
   const updateExportOptions = (options: Partial<ExportOptions>) => {
-    setExportDialog((prev) => ({
-      ...prev,
+    setExportDialogState({
+      ...exportDialogState,
       options: {
-        ...prev.options,
+        ...exportDialogState.options,
         ...options,
       },
-    }));
+    });
   };
 
+  // Export asset data
   const exportAssetData = () => {
-    if (!exportDialog.asset) return false;
+    if (!exportDialogState.asset) return false;
 
-    const asset = exportDialog.asset;
-    const { services, applications } = exportDialog.options;
+    try {
+      const asset = exportDialogState.asset;
+      const options = exportDialogState.options;
 
-    let exportData: any = {
-      hostname: asset.hostname,
-      ipAddress: asset.ipAddress,
-      exportDate: new Date().toISOString(),
-    };
+      // Create export data
+      const exportData: any = {
+        id: asset.id,
+        hostname: asset.hostname,
+        ipAddress: asset.ipAddress,
+        status: asset.status,
+        os: asset.os,
+      };
 
-    if (services) {
-      exportData.services = asset.services.map((service) => ({
-        name: service.name,
-        status: service.status,
-        port: service.port,
-      }));
+      // Include services if selected
+      if (options.services) {
+        exportData.services = asset.services;
+      }
+
+      // Include applications if selected
+      if (options.applications) {
+        exportData.applications = asset.applications;
+      }
+
+      // Create a Blob with the data
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: "application/json",
+      });
+
+      // Create a download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `asset_${asset.hostname}_${new Date()
+        .toISOString()
+        .slice(0, 10)}.json`;
+
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+
+      // Clean up
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Asset data exported successfully`);
+      closeExportDialog();
+      return true;
+    } catch (error) {
+      console.error("Error exporting asset data:", error);
+      toast.error("Failed to export asset data");
+      return false;
     }
-
-    if (applications) {
-      exportData.applications = asset.applications.map((app) => ({
-        name: app.name,
-        version: app.version,
-        installDate: app.installDate,
-      }));
-    }
-
-    // Convert to CSV or JSON
-    const jsonString = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([jsonString], { type: "application/json" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${asset.hostname}_export_${
-      new Date().toISOString().split("T")[0]
-    }.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-
-    closeExportDialog();
-    toast.success("Export completed successfully");
-    return true;
   };
 
   return {
-    exportDialog,
+    exportDialogState,
     openExportDialog,
     closeExportDialog,
     updateExportOptions,

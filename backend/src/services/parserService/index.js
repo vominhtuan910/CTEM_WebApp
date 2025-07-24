@@ -1,8 +1,7 @@
 import fs from "fs";
 import path from "path";
 import prisma from "../../core/database/prisma.js";
-
-import { extractWindowsVulnerabilities } from "../scanService/windowsScan.js";
+import { PrismaClient } from "@prisma/client";
 import { getSeverityLevel } from "../scanService/lynisScan.js";
 
 /**
@@ -10,99 +9,237 @@ import { getSeverityLevel } from "../scanService/lynisScan.js";
  * @param {Object} scanResults - Results from the scan service
  * @returns {Promise<Object>} Parsed results with vulnerabilities
  */
-async function parseScanResults(scanResults) {
+// This function parses scan results from various tools into a unified format
+export async function parseScanResults(scanResults) {
   try {
-    const parsedResults = {
-      timestamp: scanResults.timestamp || new Date(),
-      assetInfo: extractAssetInfo(scanResults),
-      services: extractServices(scanResults),
-      applications: extractApplications(scanResults),
-      vulnerabilities: await extractVulnerabilities(scanResults),
-      healthScore: calculateHealthScore(scanResults),
-    };
+    console.log("Parsing scan results:", typeof scanResults);
 
-    return parsedResults;
+    // Extract asset information (focused on OS info)
+    const assetInfo = extractAssetInfo(scanResults);
+
+    // Extract services information (from Nmap)
+    const services = extractServices(scanResults);
+
+    // Extract applications information
+    const applications = extractApplications(scanResults);
+
+    // Extract vulnerabilities
+    const vulnerabilities = await extractVulnerabilities(scanResults);
+
+    // Calculate health score
+    const healthScore = calculateHealthScore(scanResults);
+
+    return {
+      assetInfo,
+      services,
+      applications,
+      vulnerabilities,
+      healthScore,
+      scanData: scanResults, // Store original scan data for reference
+    };
   } catch (error) {
     console.error("Error parsing scan results:", error);
-    throw error;
+    throw new Error(`Failed to parse scan results: ${error.message}`);
   }
 }
 
-/**
- * Extract asset information from scan results
- * @param {Object} scanResults - Results from the scan service
- * @returns {Object} Asset information
- */
+// Extract basic asset information from scan results, focusing on OS info
 function extractAssetInfo(scanResults) {
-  const systemInfo = scanResults.systemInfo || {};
-  const osInfo = (scanResults.nmapScan && scanResults.nmapScan.osInfo) || {};
-  const powerShellInfo =
-    (scanResults.powerShellScan && scanResults.powerShellScan.OSInfo) || {};
+  try {
+    console.log(
+      "Extracting asset info from scan results with keys:",
+      Object.keys(scanResults)
+    );
 
-  // Find the primary IP address (non-loopback)
-  let primaryIp = "127.0.0.1";
-  const ipAddresses = [];
+    // Initialize with default values, focusing only on basic and OS info
+    const assetInfo = {
+      hostname: "unknown",
+      ipAddress: "127.0.0.1",
+      status: "active",
+      osName: "Unknown",
+      osVersion: "",
+      osArchitecture: "",
+      osPlatform: "",
+      osKernelVersion: "",
+      osBuildNumber: "",
+      lastBootTime: new Date().toISOString(),
+    };
 
-  if (systemInfo.ipAddresses && Array.isArray(systemInfo.ipAddresses)) {
-    // Extract all IP addresses
-    systemInfo.ipAddresses.forEach((ip) => {
-      if (typeof ip === "object" && ip.address) {
-        ipAddresses.push(ip.address);
+    // If we have direct fields in the unified format, use those
+    if (scanResults.hostname) {
+      assetInfo.hostname = scanResults.hostname;
+    }
 
-        // Find a suitable primary IP (non-loopback, IPv4)
-        if (
-          ip.address !== "127.0.0.1" &&
-          !ip.address.startsWith("169.254.") &&
-          !ip.address.startsWith("::1") &&
-          !ip.internal &&
-          ip.family === "IPv4"
-        ) {
-          primaryIp = ip.address;
+    if (scanResults.ipAddress) {
+      assetInfo.ipAddress = scanResults.ipAddress;
+    }
+
+    if (scanResults.osName) {
+      assetInfo.osName = scanResults.osName;
+    }
+
+    if (scanResults.osVersion) {
+      assetInfo.osVersion = scanResults.osVersion;
+    }
+
+    if (scanResults.osArchitecture) {
+      assetInfo.osArchitecture = scanResults.osArchitecture;
+    }
+
+    // If we have systemInfo, extract from there
+    if (scanResults.systemInfo) {
+      console.log("System info keys:", Object.keys(scanResults.systemInfo));
+      const systemInfo = scanResults.systemInfo;
+
+      // Hostname
+      if (systemInfo.hostname) {
+        assetInfo.hostname = systemInfo.hostname;
+      } else if (systemInfo.computerName) {
+        assetInfo.hostname = systemInfo.computerName;
+      }
+
+      // IP Address - find the first non-internal IPv4 address
+      if (systemInfo.primaryIp) {
+        assetInfo.ipAddress = systemInfo.primaryIp;
+      } else if (
+        systemInfo.ipAddresses &&
+        Array.isArray(systemInfo.ipAddresses)
+      ) {
+        const mainIp = systemInfo.ipAddresses.find(
+          (ip) => ip.family === "IPv4" && !ip.internal
+        );
+        if (mainIp) {
+          assetInfo.ipAddress = mainIp.address;
+        }
+      } else if (
+        systemInfo.network &&
+        systemInfo.network.interfaces &&
+        Array.isArray(systemInfo.network.interfaces)
+      ) {
+        // Try to get from network.interfaces
+        const mainIp = systemInfo.network.interfaces.find(
+          (ip) => ip.family === "IPv4" && !ip.internal
+        );
+        if (mainIp) {
+          assetInfo.ipAddress = mainIp.address;
         }
       }
-    });
-  }
 
-  // Determine OS information from available sources
-  let osName, osVersion, osArch;
+      // OS Information
+      if (systemInfo.osInfo) {
+        // Handle nested osInfo object
+        if (systemInfo.osInfo.name) {
+          assetInfo.osName = systemInfo.osInfo.name;
+        } else if (systemInfo.osInfo.fullName) {
+          assetInfo.osName = systemInfo.osInfo.fullName;
+        } else if (systemInfo.osInfo.Caption) {
+          assetInfo.osName = systemInfo.osInfo.Caption;
+        }
 
-  // Try Windows PowerShell data first (most detailed)
-  if (powerShellInfo.Caption) {
-    osName = powerShellInfo.Caption;
-    osVersion = powerShellInfo.Version;
-    osArch = powerShellInfo.OSArchitecture;
-  }
-  // Try nmap OS detection
-  else if (osInfo.name) {
-    osName = osInfo.name;
-    // Try to extract version from OS name
-    const versionMatch = osName.match(/(\d+\.\d+)/);
-    if (versionMatch) {
-      osVersion = versionMatch[0];
+        if (systemInfo.osInfo.version) {
+          assetInfo.osVersion = systemInfo.osInfo.version;
+        } else if (systemInfo.osInfo.versionInfo) {
+          assetInfo.osVersion = systemInfo.osInfo.versionInfo;
+        } else if (systemInfo.osInfo.Version) {
+          assetInfo.osVersion = systemInfo.osInfo.Version;
+        }
+
+        if (systemInfo.osInfo.arch) {
+          assetInfo.osArchitecture = systemInfo.osInfo.arch;
+        } else if (systemInfo.osInfo.osArchitecture) {
+          assetInfo.osArchitecture = systemInfo.osInfo.osArchitecture;
+        } else if (systemInfo.osInfo.OSArchitecture) {
+          assetInfo.osArchitecture = systemInfo.osInfo.OSArchitecture;
+        }
+
+        // Additional OS information
+        if (systemInfo.osInfo.platform) {
+          assetInfo.osPlatform = systemInfo.osInfo.platform;
+        }
+
+        if (systemInfo.osInfo.kernelVersion) {
+          assetInfo.osKernelVersion = systemInfo.osInfo.kernelVersion;
+        }
+
+        if (systemInfo.osInfo.buildNumber) {
+          assetInfo.osBuildNumber = systemInfo.osInfo.buildNumber;
+        }
+      } else {
+        // Fallback to direct properties
+        if (systemInfo.osFullName) {
+          assetInfo.osName = systemInfo.osFullName;
+        } else if (systemInfo.platform) {
+          assetInfo.osName =
+            systemInfo.platform.charAt(0).toUpperCase() +
+            systemInfo.platform.slice(1);
+          // Also store platform as is
+          assetInfo.osPlatform = systemInfo.platform;
+        } else if (systemInfo.osName) {
+          assetInfo.osName = systemInfo.osName;
+        }
+
+        if (systemInfo.osVersionFull) {
+          assetInfo.osVersion = systemInfo.osVersionFull;
+        } else if (systemInfo.release) {
+          assetInfo.osVersion = systemInfo.release;
+          // Also store as kernelVersion for Linux systems
+          assetInfo.osKernelVersion = systemInfo.release;
+        } else if (systemInfo.osVersion) {
+          assetInfo.osVersion = systemInfo.osVersion;
+        }
+
+        if (systemInfo.buildNumber) {
+          assetInfo.osBuildNumber = systemInfo.buildNumber;
+        }
+
+        if (systemInfo.arch) {
+          assetInfo.osArchitecture = systemInfo.arch;
+        } else if (systemInfo.osArchitecture) {
+          assetInfo.osArchitecture = systemInfo.osArchitecture;
+        }
+      }
+
+      // Last boot time
+      if (systemInfo.uptime) {
+        const bootTime = new Date();
+        bootTime.setSeconds(bootTime.getSeconds() - systemInfo.uptime);
+        assetInfo.lastBootTime = bootTime.toISOString();
+      } else if (systemInfo.osInfo && systemInfo.osInfo.LastBootUpTime) {
+        assetInfo.lastBootTime = new Date(
+          systemInfo.osInfo.LastBootUpTime
+        ).toISOString();
+      }
+
+      // Additional system properties from Windows PowerShell scan
+      if (systemInfo.manufacturer) {
+        assetInfo.manufacturer = systemInfo.manufacturer;
+      }
+
+      if (systemInfo.model) {
+        assetInfo.model = systemInfo.model;
+      }
     }
-  }
-  // Fall back to Node.js os info
-  else {
-    osName = systemInfo.type || systemInfo.platform;
-    osVersion = systemInfo.release;
-    osArch = systemInfo.arch;
-  }
 
-  return {
-    hostname: systemInfo.hostname || "unknown-host",
-    name: systemInfo.hostname || "Unknown Host",
-    ipAddress: primaryIp,
-    ipAddresses,
-    osName,
-    osVersion,
-    osArchitecture: osArch,
-    osBuildNumber: powerShellInfo.BuildNumber || null,
-    osLastBootTime: powerShellInfo.LastBootUpTime
-      ? new Date(powerShellInfo.LastBootUpTime)
-      : null,
-    systemModel: systemInfo.systemModel || null,
-    systemManufacturer: systemInfo.systemManufacturer || null,
-  };
+    console.log("Extracted asset info:", {
+      hostname: assetInfo.hostname,
+      ipAddress: assetInfo.ipAddress,
+      osName: assetInfo.osName,
+      osVersion: assetInfo.osVersion,
+    });
+
+    return assetInfo;
+  } catch (error) {
+    console.error("Error extracting asset info:", error);
+    return {
+      hostname: "unknown",
+      ipAddress: "127.0.0.1",
+      status: "active",
+      osName: "Unknown",
+      osVersion: "",
+      osArchitecture: "",
+      lastBootTime: new Date().toISOString(),
+    };
+  }
 }
 
 /**
@@ -111,49 +248,37 @@ function extractAssetInfo(scanResults) {
  * @returns {Array} Array of services
  */
 function extractServices(scanResults) {
-  const services = [];
+  try {
+    // If we already have services in the unified format, use those
+    if (scanResults.services && Array.isArray(scanResults.services)) {
+      return scanResults.services;
+    }
 
-  // Extract services from nmap scan
-  if (scanResults.nmapScan && scanResults.nmapScan.openPorts) {
-    scanResults.nmapScan.openPorts.forEach((port) => {
-      if (port && port.port) {
-        services.push({
-          name: port.service || `port-${port.port}`,
-          displayName: `${port.service || "Unknown"} (${port.port}/${
-            port.protocol || "tcp"
-          })`,
-          status: "running",
-          port: parseInt(port.port),
-          protocol: port.protocol || "tcp",
-          version: port.version || null,
-          description: null,
-        });
-      }
-    });
+    // If we have port scan data
+    if (scanResults.portScan && scanResults.portScan.openPorts) {
+      return scanResults.portScan.openPorts.map((port) => ({
+        name: port.service || `port-${port.port}`,
+        displayName: port.service
+          ? `${port.service.charAt(0).toUpperCase()}${port.service.slice(1)}`
+          : `Port ${port.port}`,
+        status: port.state || "unknown",
+        startType: "auto",
+        port: port.port,
+        protocol: port.protocol || "tcp",
+      }));
+    }
+
+    // If we have systemInfo with running services
+    if (scanResults.systemInfo && scanResults.systemInfo.services) {
+      return scanResults.systemInfo.services;
+    }
+
+    // Default empty array
+    return [];
+  } catch (error) {
+    console.error("Error extracting services:", error);
+    return [];
   }
-
-  // Add Windows services from PowerShell scan
-  if (scanResults.powerShellScan && scanResults.powerShellScan.Services) {
-    scanResults.powerShellScan.Services.forEach((svc) => {
-      if (svc && svc.Name) {
-        // Check if service already added from nmap
-        const existingService = services.find((s) => s.name === svc.Name);
-        if (!existingService) {
-          services.push({
-            name: svc.Name,
-            displayName: svc.DisplayName || svc.Name,
-            status: "running",
-            port: null,
-            protocol: null,
-            version: null,
-            description: null,
-          });
-        }
-      }
-    });
-  }
-
-  return services;
 }
 
 /**
@@ -162,26 +287,23 @@ function extractServices(scanResults) {
  * @returns {Array} Array of applications
  */
 function extractApplications(scanResults) {
-  const applications = [];
+  try {
+    // If we already have applications in the unified format, use those
+    if (scanResults.applications && Array.isArray(scanResults.applications)) {
+      return scanResults.applications;
+    }
 
-  // Extract Windows applications from PowerShell scan
-  if (scanResults.powerShellScan && scanResults.powerShellScan.Software) {
-    scanResults.powerShellScan.Software.forEach((sw) => {
-      if (sw && sw.DisplayName) {
-        applications.push({
-          name: sw.DisplayName,
-          version: sw.DisplayVersion || null,
-          publisher: sw.Publisher || null,
-          installDate: sw.InstallDate ? new Date(sw.InstallDate) : null,
-          type: null,
-          description: null,
-          path: null,
-        });
-      }
-    });
+    // If we have systemInfo with applications
+    if (scanResults.systemInfo && scanResults.systemInfo.applications) {
+      return scanResults.systemInfo.applications;
+    }
+
+    // Default empty array
+    return [];
+  } catch (error) {
+    console.error("Error extracting applications:", error);
+    return [];
   }
-
-  return applications;
 }
 
 /**
@@ -190,413 +312,288 @@ function extractApplications(scanResults) {
  * @returns {Promise<Array>} Array of vulnerabilities
  */
 async function extractVulnerabilities(scanResults) {
-  const vulnerabilities = [];
-  const now = new Date();
-
-  // Process Lynis security warnings
-  if (scanResults.lynisScan && scanResults.lynisScan.securityWarnings) {
-    scanResults.lynisScan.securityWarnings.forEach((warning) => {
-      vulnerabilities.push({
-        name: warning.substring(0, 100),
-        type: "configuration",
-        cvssScore: 5.0, // Medium severity by default
-        severityLevel: getSeverityLevel(warning),
-        discoveryDate: now,
-        status: "Not_Fixed",
-        description: warning,
-        recommendations: "Follow system hardening best practices",
-        cveReferences: [],
-        vector: null,
-        exploitAvailable: false,
-        patchAvailable: true,
-      });
-    });
-  }
-
-  // Process Lynis suggestions
-  if (scanResults.lynisScan && scanResults.lynisScan.suggestions) {
-    scanResults.lynisScan.suggestions.forEach((suggestion) => {
-      // Only add if it seems security-related
-      if (
-        suggestion.toLowerCase().includes("security") ||
-        suggestion.toLowerCase().includes("vulnerab") ||
-        suggestion.toLowerCase().includes("protect") ||
-        suggestion.toLowerCase().includes("risk") ||
-        suggestion.toLowerCase().includes("attack")
-      ) {
-        vulnerabilities.push({
-          name: suggestion.substring(0, 100),
-          type: "configuration",
-          cvssScore: 3.0, // Low severity by default
-          severityLevel: "Low",
-          discoveryDate: now,
-          status: "Not_Fixed",
-          description: suggestion,
-          recommendations: suggestion,
-          cveReferences: [],
-          vector: null,
-          exploitAvailable: false,
-          patchAvailable: true,
-        });
-      }
-    });
-  }
-
-  // Process Windows-specific vulnerabilities
-  if (scanResults.powerShellScan) {
-    const windowsVulns = extractWindowsVulnerabilities(
-      scanResults.powerShellScan
-    );
-
-    windowsVulns.forEach((vuln) => {
-      let cvssScore = 3.0;
-
-      switch (vuln.severity) {
-        case "Critical":
-          cvssScore = 9.0;
-          break;
-        case "High":
-          cvssScore = 7.0;
-          break;
-        case "Medium":
-          cvssScore = 5.0;
-          break;
-        case "Low":
-          cvssScore = 3.0;
-          break;
-      }
-
-      vulnerabilities.push({
-        name: vuln.name,
-        type: vuln.type,
-        cvssScore,
-        severityLevel: vuln.severity,
-        discoveryDate: now,
-        status: "Not_Fixed",
-        description: vuln.description,
-        recommendations: vuln.recommendation,
-        cveReferences: [],
-        vector: null,
-        exploitAvailable: false,
-        patchAvailable: true,
-      });
-    });
-  }
-
-  // Add any network-based vulnerabilities
-  if (scanResults.nmapScan && scanResults.nmapScan.openPorts) {
-    // Check for commonly vulnerable services
-    const vulnerableServices = {
-      telnet: {
-        score: 7.5,
-        severity: "High",
-        desc: "Telnet uses unencrypted communications",
-      },
-      ftp: {
-        score: 5.0,
-        severity: "Medium",
-        desc: "FTP may allow anonymous access or uses unencrypted communications",
-      },
-      rsh: {
-        score: 8.0,
-        severity: "High",
-        desc: "Remote shell protocol has weak authentication",
-      },
-      rlogin: {
-        score: 8.0,
-        severity: "High",
-        desc: "Remote login protocol has weak authentication",
-      },
-      rexec: {
-        score: 8.0,
-        severity: "High",
-        desc: "Remote execution protocol has weak authentication",
-      },
-      tftp: {
-        score: 5.0,
-        severity: "Medium",
-        desc: "Trivial FTP has no authentication",
-      },
-      finger: {
-        score: 5.0,
-        severity: "Medium",
-        desc: "Finger protocol can leak user information",
-      },
-      http: {
-        score: 4.0,
-        severity: "Medium",
-        desc: "HTTP service without TLS encryption",
-      },
-      postgresql: {
-        score: 4.0,
-        severity: "Medium",
-        desc: "PostgreSQL database potentially exposed to network",
-      },
-      mysql: {
-        score: 4.0,
-        severity: "Medium",
-        desc: "MySQL database potentially exposed to network",
-      },
-      "microsoft-ds": {
-        score: 5.0,
-        severity: "Medium",
-        desc: "SMB file sharing service potentially exposed",
-      },
-    };
-
-    scanResults.nmapScan.openPorts.forEach((port) => {
-      if (port.service && vulnerableServices[port.service]) {
-        const vulnInfo = vulnerableServices[port.service];
-
-        vulnerabilities.push({
-          name: `Exposed ${port.service} service on port ${port.port}`,
-          type: "network",
-          cvssScore: vulnInfo.score,
-          severityLevel: vulnInfo.severity,
-          discoveryDate: now,
-          status: "Not_Fixed",
-          description: `${vulnInfo.desc} on port ${port.port}/${
-            port.protocol || "tcp"
-          }`,
-          recommendations: `Consider disabling or restricting access to the ${port.service} service`,
-          cveReferences: [],
-          vector: `NETWORK:${port.port}/${port.protocol || "tcp"}`,
-          exploitAvailable: false,
-          patchAvailable: true,
-        });
-      }
-    });
-  }
-
-  // Deduplicate vulnerabilities
-  const uniqueVulns = [];
-  const seenVulns = new Set();
-
-  vulnerabilities.forEach((vuln) => {
-    const vulnKey = `${vuln.name}-${vuln.type}-${vuln.description.substring(
-      0,
-      50
-    )}`;
-    if (!seenVulns.has(vulnKey)) {
-      seenVulns.add(vulnKey);
-      uniqueVulns.push(vuln);
+  try {
+    // If we already have vulnerabilities in the unified format, use those
+    if (
+      scanResults.vulnerabilities &&
+      Array.isArray(scanResults.vulnerabilities)
+    ) {
+      return scanResults.vulnerabilities;
     }
-  });
 
-  return uniqueVulns;
+    // If we have securityIssues
+    if (
+      scanResults.securityIssues &&
+      Array.isArray(scanResults.securityIssues)
+    ) {
+      return scanResults.securityIssues.map((issue, index) => ({
+        id: issue.id || `vuln-${index}`,
+        name: issue.name || `Vulnerability ${index + 1}`,
+        type: issue.type || "security",
+        cvssScore: issue.cvssScore || calculateCvssFromSeverity(issue.severity),
+        severityLevel: issue.severity || "Medium",
+        discoveryDate: new Date().toISOString(),
+        status: "Not_Fixed",
+        description: issue.description || "No description provided",
+        recommendations: issue.recommendation || "No recommendations provided",
+        cveReferences: issue.cveId ? [issue.cveId] : [],
+        affectedComponent: issue.affectedComponent || "",
+      }));
+    }
+
+    // Default empty array
+    return [];
+  } catch (error) {
+    console.error("Error extracting vulnerabilities:", error);
+    return [];
+  }
 }
 
-/**
- * Calculate health score based on scan results
- * @param {Object} scanResults - Results from the scan service
- * @returns {number} Health score (0-100)
- */
+// Helper function to calculate CVSS from severity
+function calculateCvssFromSeverity(severity) {
+  switch (severity?.toLowerCase()) {
+    case "critical":
+      return 9.5;
+    case "high":
+      return 7.5;
+    case "medium":
+      return 5.0;
+    case "low":
+      return 3.0;
+    default:
+      return 5.0;
+  }
+}
+
+// Calculate health score from scan results
 function calculateHealthScore(scanResults) {
-  // Start with a base score
-  let score = 75;
+  try {
+    // If we already have a health score in the unified format, use it
+    if (scanResults.healthScore) {
+      return scanResults.healthScore;
+    }
 
-  // Adjust based on Lynis hardening index if available
-  if (
-    scanResults.lynisScan &&
-    scanResults.lynisScan.hardening &&
-    scanResults.lynisScan.hardening.index !== undefined
-  ) {
-    // Blend our score with Lynis hardening index
-    score = (score + scanResults.lynisScan.hardening.index) / 2;
-  }
+    // Start with a perfect score
+    let score = 100;
 
-  // Penalize for open ports
-  if (scanResults.nmapScan && scanResults.nmapScan.openPorts) {
-    const openPorts = scanResults.nmapScan.openPorts.length;
-    if (openPorts > 10) score -= 5;
-    if (openPorts > 20) score -= 5;
-
-    // Check for high-risk ports
-    const highRiskPorts = [21, 23, 25, 445, 1433, 3306, 3389, 5432];
-    const openPortNumbers = scanResults.nmapScan.openPorts.map((p) => p.port);
-    const openHighRiskPorts = highRiskPorts.filter((port) =>
-      openPortNumbers.includes(port)
-    );
-    score -= openHighRiskPorts.length * 3;
-  }
-
-  // Penalize for Windows firewall issues
-  if (
-    scanResults.powerShellScan &&
-    scanResults.powerShellScan.FirewallProfiles
-  ) {
-    const disabledFirewalls =
-      scanResults.powerShellScan.FirewallProfiles.filter(
-        (p) => !p.Enabled
+    // Deduct points for vulnerabilities
+    if (
+      scanResults.vulnerabilities &&
+      Array.isArray(scanResults.vulnerabilities)
+    ) {
+      const criticalCount = scanResults.vulnerabilities.filter(
+        (v) => v.severityLevel === "Critical"
       ).length;
-    score -= disabledFirewalls * 10;
-  }
+      const highCount = scanResults.vulnerabilities.filter(
+        (v) => v.severityLevel === "High"
+      ).length;
+      const mediumCount = scanResults.vulnerabilities.filter(
+        (v) => v.severityLevel === "Medium"
+      ).length;
+      const lowCount = scanResults.vulnerabilities.filter(
+        (v) => v.severityLevel === "Low"
+      ).length;
 
-  // Penalize for Lynis warnings
-  if (scanResults.lynisScan && scanResults.lynisScan.securityWarnings) {
-    score -= Math.min(scanResults.lynisScan.securityWarnings.length * 2, 20);
-  }
+      // Deduct points based on severity
+      score -= criticalCount * 10;
+      score -= highCount * 5;
+      score -= mediumCount * 2;
+      score -= lowCount * 0.5;
+    }
 
-  // Ensure score is between 0-100
-  return Math.max(0, Math.min(100, score));
+    // Deduct points for security issues
+    if (
+      scanResults.securityIssues &&
+      Array.isArray(scanResults.securityIssues)
+    ) {
+      const criticalCount = scanResults.securityIssues.filter(
+        (v) => v.severity === "Critical"
+      ).length;
+      const highCount = scanResults.securityIssues.filter(
+        (v) => v.severity === "High"
+      ).length;
+      const mediumCount = scanResults.securityIssues.filter(
+        (v) => v.severity === "Medium"
+      ).length;
+      const lowCount = scanResults.securityIssues.filter(
+        (v) => v.severity === "Low"
+      ).length;
+
+      // Deduct points based on severity
+      score -= criticalCount * 10;
+      score -= highCount * 5;
+      score -= mediumCount * 2;
+      score -= lowCount * 0.5;
+    }
+
+    // Ensure score is between 0 and 100
+    return Math.max(0, Math.min(100, score));
+  } catch (error) {
+    console.error("Error calculating health score:", error);
+    return 75; // Default health score
+  }
 }
 
 /**
- * Save parsed scan results to the database
+ * Save parsed scan results to database
  * @param {Object} parsedResults - Parsed scan results
  * @param {string} assetId - Asset ID (optional, if updating an existing asset)
  * @returns {Promise<Object>} Saved asset with vulnerabilities
  */
-async function saveScanResults(parsedResults, assetId = null) {
+export async function saveScanResults(parsedResults, assetId = null) {
   try {
+    const prisma = getPrismaClient();
+
+    // Extract asset information
     const assetInfo = parsedResults.assetInfo;
-    const services = parsedResults.services;
-    const applications = parsedResults.applications;
-    const vulnerabilities = parsedResults.vulnerabilities;
-    const healthScore = parsedResults.healthScore;
+    const services = parsedResults.services || [];
+    const applications = parsedResults.applications || [];
+    const vulnerabilities = parsedResults.vulnerabilities || [];
+    const healthScore = parsedResults.healthScore || 100;
 
-    // Generate labels based on OS and services
-    const labels = [];
-
-    // OS-based labels
-    if (assetInfo.osName) {
-      const osNameLower = assetInfo.osName.toLowerCase();
-      if (osNameLower.includes("windows")) labels.push("windows");
-      if (osNameLower.includes("linux")) labels.push("linux");
-      if (osNameLower.includes("ubuntu")) labels.push("ubuntu");
-      if (osNameLower.includes("centos")) labels.push("centos");
-      if (osNameLower.includes("debian")) labels.push("debian");
-      if (osNameLower.includes("mac") || osNameLower.includes("darwin"))
-        labels.push("macos");
-    }
-
-    // Service-based labels
-    const serviceTypes = services.map((s) => s.name.toLowerCase());
-    if (serviceTypes.some((s) => s.includes("http") || s.includes("web")))
-      labels.push("web-server");
-    if (serviceTypes.includes("ssh")) labels.push("ssh");
-    if (serviceTypes.includes("ftp")) labels.push("ftp");
-    if (serviceTypes.some((s) => s.includes("smtp") || s.includes("mail")))
-      labels.push("mail-server");
-    if (serviceTypes.includes("mysql")) labels.push("mysql");
-    if (serviceTypes.includes("postgresql")) labels.push("postgresql");
-    if (serviceTypes.includes("rdp") || serviceTypes.includes("ms-wbt-server"))
-      labels.push("rdp");
+    // Prepare asset data (focusing on OS information)
+    const assetData = {
+      hostname: assetInfo.hostname,
+      ipAddress: assetInfo.ipAddress,
+      ipAddresses: assetInfo.ipAddresses || [assetInfo.ipAddress],
+      status: "active",
+      lastScan: new Date(),
+      healthScore,
+      // OS details
+      osName: assetInfo.osName,
+      osVersion: assetInfo.osVersion,
+      osArchitecture: assetInfo.osArchitecture,
+      osBuildNumber: assetInfo.osBuildNumber,
+      osPlatform: assetInfo.osPlatform,
+      osKernelVersion: assetInfo.osKernelVersion,
+      osLastBootTime: assetInfo.lastBootTime
+        ? new Date(assetInfo.lastBootTime)
+        : null,
+    };
 
     let asset;
 
-    // Check if we're updating an existing asset or creating a new one
+    // If assetId is provided, update existing asset
     if (assetId) {
-      // Update existing asset
+      // Check if asset exists
+      const existingAsset = await prisma.asset.findUnique({
+        where: { id: assetId },
+      });
+
+      if (!existingAsset) {
+        throw new Error(`Asset with ID ${assetId} not found`);
+      }
+
+      // Update the asset
       asset = await prisma.asset.update({
         where: { id: assetId },
-        data: {
-          hostname: assetInfo.hostname,
-          name: assetInfo.name,
-          ipAddress: assetInfo.ipAddress,
-          ipAddresses: assetInfo.ipAddresses,
-          lastScan: new Date(),
-          healthScore: healthScore,
-          issuesCount: vulnerabilities.length,
-          labels: [...new Set([...labels])],
-          osName: assetInfo.osName,
-          osVersion: assetInfo.osVersion,
-          osArchitecture: assetInfo.osArchitecture,
-          osBuildNumber: assetInfo.osBuildNumber,
-          osLastBootTime: assetInfo.osLastBootTime,
-        },
+        data: assetData,
       });
 
       // Delete existing services and applications
-      await prisma.service.deleteMany({ where: { assetId } });
-      await prisma.application.deleteMany({ where: { assetId } });
+      await prisma.service.deleteMany({
+        where: { assetId },
+      });
+
+      await prisma.application.deleteMany({
+        where: { assetId },
+      });
     } else {
       // Create new asset
       asset = await prisma.asset.create({
-        data: {
-          hostname: assetInfo.hostname,
-          name: assetInfo.name,
-          ipAddress: assetInfo.ipAddress,
-          ipAddresses: assetInfo.ipAddresses,
-          status: "active",
-          lastScan: new Date(),
-          healthScore: healthScore,
-          issuesCount: vulnerabilities.length,
-          labels,
-          agentStatus: "not_installed",
-          osName: assetInfo.osName,
-          osVersion: assetInfo.osVersion,
-          osArchitecture: assetInfo.osArchitecture,
-          osBuildNumber: assetInfo.osBuildNumber,
-          osLastBootTime: assetInfo.osLastBootTime,
-          confidentiality: 1,
-          integrity: 1,
-          availability: 1,
-        },
+        data: assetData,
       });
     }
 
-    // Create services
+    // Add services
     if (services.length > 0) {
       await Promise.all(
         services.map((service) =>
           prisma.service.create({
             data: {
-              ...service,
-              assetId: asset.id,
+              name: service.name,
+              displayName: service.displayName || service.name,
+              status: service.status || "unknown",
+              port: service.port || null,
+              protocol: service.protocol || null,
+              version: service.version || null,
+              description: service.description || null,
+              asset: { connect: { id: asset.id } },
             },
           })
         )
       );
     }
 
-    // Create applications
+    // Add applications
     if (applications.length > 0) {
       await Promise.all(
         applications.map((app) =>
           prisma.application.create({
             data: {
-              ...app,
-              assetId: asset.id,
+              name: app.name,
+              version: app.version || null,
+              publisher: app.publisher || null,
+              installDate: app.installDate ? new Date(app.installDate) : null,
+              type: app.type || null,
+              description: app.description || null,
+              path: app.path || null,
+              asset: { connect: { id: asset.id } },
             },
           })
         )
       );
     }
 
-    // Create vulnerabilities and link them to the asset
+    // Add vulnerabilities
     if (vulnerabilities.length > 0) {
       for (const vuln of vulnerabilities) {
-        // Create the vulnerability
-        const createdVuln = await prisma.vulnerability.create({
-          data: {
+        // Check if vulnerability already exists
+        const existingVuln = await prisma.vulnerability.findFirst({
+          where: {
             name: vuln.name,
-            type: vuln.type,
-            cvssScore: vuln.cvssScore,
-            severityLevel: vuln.severityLevel,
-            discoveryDate: vuln.discoveryDate,
-            status: vuln.status,
-            description: vuln.description,
-            recommendations: vuln.recommendations,
-            cveReferences: vuln.cveReferences,
-            vector: vuln.vector,
-            exploitAvailable: vuln.exploitAvailable,
-            patchAvailable: vuln.patchAvailable,
+            type: vuln.type || "unknown",
           },
         });
+
+        let vulnerability;
+
+        if (existingVuln) {
+          vulnerability = existingVuln;
+        } else {
+          // Create new vulnerability
+          vulnerability = await prisma.vulnerability.create({
+            data: {
+              name: vuln.name,
+              type: vuln.type || "unknown",
+              cvssScore: vuln.cvssScore || 5.0,
+              severityLevel: vuln.severityLevel || "Medium",
+              discoveryDate: vuln.discoveryDate
+                ? new Date(vuln.discoveryDate)
+                : new Date(),
+              status: vuln.status || "Not_Fixed",
+              description: vuln.description || "",
+              recommendations: vuln.recommendations || "",
+              cveReferences: vuln.cveReferences || [],
+              vector: vuln.vector || null,
+              exploitAvailable: vuln.exploitAvailable || false,
+              patchAvailable: vuln.patchAvailable || false,
+            },
+          });
+        }
 
         // Link vulnerability to asset
         await prisma.assetVulnerability.create({
           data: {
             assetId: asset.id,
-            vulnerabilityId: createdVuln.id,
+            vulnerabilityId: vulnerability.id,
           },
         });
       }
     }
 
-    // Return the complete asset with all relations
-    const completeAsset = await prisma.asset.findUnique({
+    // Return the asset with services and applications
+    return await prisma.asset.findUnique({
       where: { id: asset.id },
       include: {
         services: true,
@@ -608,20 +605,26 @@ async function saveScanResults(parsedResults, assetId = null) {
         },
       },
     });
-
-    return completeAsset;
   } catch (error) {
     console.error("Error saving scan results to database:", error);
     throw error;
   }
 }
 
+// Helper function to get Prisma client
+function getPrismaClient() {
+  try {
+    return new PrismaClient();
+  } catch (error) {
+    console.error("Error creating Prisma client:", error);
+    throw error;
+  }
+}
+
 export {
-  parseScanResults,
   extractAssetInfo,
   extractServices,
   extractApplications,
   extractVulnerabilities,
   calculateHealthScore,
-  saveScanResults,
 };

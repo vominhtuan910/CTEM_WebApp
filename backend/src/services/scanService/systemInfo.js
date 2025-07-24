@@ -1,217 +1,194 @@
-import { exec } from "child_process";
 import os from "os";
+import { exec } from "child_process";
 import util from "util";
 
 const execPromise = util.promisify(exec);
 
 /**
- * Get more detailed system information beyond what Node.js os module provides
- * @returns {Promise<Object>} Enhanced system information
+ * Format network interfaces information
+ * @param {Object} interfaces - OS network interfaces
+ * @returns {Array} Formatted network interfaces
  */
-async function getEnhancedSystemInfo() {
-  const sysInfo = {
-    platform: os.platform(),
-    type: os.type(),
-    release: os.release(),
-    arch: os.arch(),
-    uptime: os.uptime(),
-    loadavg: os.loadavg(),
-    totalmem: os.totalmem(),
-    freemem: os.freemem(),
-  };
+function formatNetworkInterfaces(interfaces) {
+  const formattedInterfaces = [];
 
-  try {
-    // Enhanced detection based on platform
-    if (os.platform() === "win32") {
-      // Windows: Use systeminfo
-      const { stdout } = await execPromise("systeminfo");
+  // Process each network interface
+  Object.keys(interfaces).forEach((ifaceName) => {
+    const iface = interfaces[ifaceName];
 
-      // Extract OS name
-      const osNameMatch = stdout.match(/OS Name:\s*(.*)/i);
-      if (osNameMatch) {
-        sysInfo.osFullName = osNameMatch[1].trim();
-      }
+    // Process each address in the interface
+    iface.forEach((address) => {
+      formattedInterfaces.push({
+        name: ifaceName,
+        address: address.address,
+        family: address.family,
+        internal: address.internal,
+        netmask: address.netmask,
+        mac: address.mac || null,
+        cidr: address.cidr || null,
+      });
+    });
+  });
 
-      // Extract OS Version
-      const osVersionMatch = stdout.match(/OS Version:\s*(.*)/i);
-      if (osVersionMatch) {
-        sysInfo.osVersionFull = osVersionMatch[1].trim();
-      }
-
-      // Extract system model
-      const sysModelMatch = stdout.match(/System Model:\s*(.*)/i);
-      if (sysModelMatch) {
-        sysInfo.systemModel = sysModelMatch[1].trim();
-      }
-
-      // Extract system manufacturer
-      const sysManufacturerMatch = stdout.match(/System Manufacturer:\s*(.*)/i);
-      if (sysManufacturerMatch) {
-        sysInfo.systemManufacturer = sysManufacturerMatch[1].trim();
-      }
-    } else if (os.platform() === "darwin") {
-      // macOS: Use system_profiler
-      const { stdout: swStdout } = await execPromise(
-        "system_profiler SPSoftwareDataType"
-      );
-      const { stdout: hwStdout } = await execPromise(
-        "system_profiler SPHardwareDataType"
-      );
-
-      // Extract OS version
-      const osVersionMatch = swStdout.match(/System Version: (.*)/i);
-      if (osVersionMatch) {
-        sysInfo.osFullName = osVersionMatch[1].trim();
-      }
-
-      // Extract model
-      const modelMatch = hwStdout.match(/Model Name: (.*)/i);
-      if (modelMatch) {
-        sysInfo.systemModel = modelMatch[1].trim();
-      }
-
-      // Extract model identifier
-      const modelIdMatch = hwStdout.match(/Model Identifier: (.*)/i);
-      if (modelIdMatch) {
-        sysInfo.systemModelId = modelIdMatch[1].trim();
-      }
-    } else {
-      // Linux: Use lsb_release if available
-      try {
-        const { stdout } = await execPromise("lsb_release -a");
-
-        const distMatch = stdout.match(/Distributor ID:\s*(.*)/);
-        if (distMatch) {
-          sysInfo.distribution = distMatch[1].trim();
-        }
-
-        const descMatch = stdout.match(/Description:\s*(.*)/);
-        if (descMatch) {
-          sysInfo.osFullName = descMatch[1].trim();
-        }
-
-        const releaseMatch = stdout.match(/Release:\s*(.*)/);
-        if (releaseMatch) {
-          sysInfo.distributionRelease = releaseMatch[1].trim();
-        }
-      } catch (error) {
-        console.log("lsb_release not available, using /etc/os-release");
-
-        try {
-          // Try /etc/os-release as fallback
-          const { stdout } = await execPromise("cat /etc/os-release");
-
-          const nameMatch = stdout.match(/PRETTY_NAME="(.*)"/);
-          if (nameMatch) {
-            sysInfo.osFullName = nameMatch[1].trim();
-          }
-
-          const idMatch = stdout.match(/ID="?([^"]*)"?/);
-          if (idMatch) {
-            sysInfo.distribution = idMatch[1].trim();
-          }
-
-          const versionMatch = stdout.match(/VERSION_ID="?([^"]*)"?/);
-          if (versionMatch) {
-            sysInfo.distributionRelease = versionMatch[1].trim();
-          }
-        } catch (err) {
-          console.log("Could not read os-release file");
-        }
-      }
-
-      // Try to get hardware model for Linux
-      try {
-        const { stdout } = await execPromise(
-          "cat /sys/devices/virtual/dmi/id/product_name"
-        );
-        if (stdout.trim()) {
-          sysInfo.systemModel = stdout.trim();
-
-          // Get manufacturer if available
-          const { stdout: vendorOutput } = await execPromise(
-            "cat /sys/devices/virtual/dmi/id/sys_vendor"
-          );
-          if (vendorOutput.trim()) {
-            sysInfo.systemManufacturer = vendorOutput.trim();
-          }
-        }
-      } catch (error) {
-        console.log("Could not read hardware information");
-      }
-    }
-  } catch (error) {
-    console.log("Error getting enhanced system info:", error.message);
-  }
-
-  return sysInfo;
+  return formattedInterfaces;
 }
 
 /**
- * Function to get hostname and IP information
- * @param {string} target - Optional target (default: localhost)
- * @returns {Promise<object>} System information
+ * Get the primary IP address (non-internal IPv4)
+ * @param {Array} interfaces - Formatted network interfaces
+ * @returns {String|null} Primary IP address
  */
-async function scanHostname_IPs(target = "localhost") {
+function getPrimaryIp(interfaces) {
+  const nonInternal = interfaces.find(
+    (iface) => iface.family === "IPv4" && !iface.internal
+  );
+
+  return nonInternal ? nonInternal.address : null;
+}
+
+/**
+ * Collect system data from OS APIs
+ * @returns {Object} Raw system data
+ */
+async function collectSystemData() {
+  // Basic system information from os module
+  const hostname = os.hostname();
+  const platform = os.platform();
+  const release = os.release();
+  const type = os.type();
+  const arch = os.arch();
+  const uptime = os.uptime();
+  const loadavg = os.loadavg();
+  const totalmem = os.totalmem();
+  const freemem = os.freemem();
+  const cpus = os.cpus();
+  const networkInterfaces = os.networkInterfaces();
+
+  // Additional platform-specific information
+  let osInfo = {
+    name: type,
+    platform,
+    kernelVersion: release,
+    fullName: null,
+    versionInfo: null,
+  };
+
   try {
-    console.log(`Gathering system information for ${target}`);
+    if (platform === "linux") {
+      // Linux - Try to get more detailed OS info
+      const { stdout: lsbRelease } = await execPromise(
+        "lsb_release -a || cat /etc/*release"
+      );
+      const distroInfo = lsbRelease.toString();
 
-    // Get basic system information from os module
-    const hostname = os.hostname();
-    const interfaces = os.networkInterfaces();
-    const platform = os.platform();
-    const release = os.release();
-    const type = os.type();
-    const arch = os.arch();
-    const uptime = os.uptime();
-    const loadAvg = os.loadavg();
-    const totalMem = os.totalmem();
-    const freeMem = os.freemem();
-    const cpus = os.cpus();
+      const nameMatch = distroInfo.match(/PRETTY_NAME="([^"]+)"/);
+      const versionMatch = distroInfo.match(/VERSION="([^"]+)"/);
 
-    // Format IP addresses
-    const ipAddresses = [];
-    Object.keys(interfaces).forEach((interfaceName) => {
-      interfaces[interfaceName].forEach((iface) => {
-        // Include all addresses, but mark internal ones
-        ipAddresses.push({
-          interface: interfaceName,
-          address: iface.address,
-          netmask: iface.netmask,
-          family: iface.family,
-          mac: iface.mac,
-          internal: iface.internal,
-        });
-      });
-    });
+      osInfo.fullName = nameMatch ? nameMatch[1] : null;
+      osInfo.versionInfo = versionMatch ? versionMatch[1] : null;
+    } else if (platform === "darwin") {
+      // macOS
+      const { stdout: macOsInfo } = await execPromise("sw_vers");
+      const macOsData = macOsInfo.toString();
 
-    // Get enhanced system information
-    const enhancedInfo = await getEnhancedSystemInfo();
+      const nameMatch = macOsData.match(/ProductName:\s+(.+)/);
+      const versionMatch = macOsData.match(/ProductVersion:\s+(.+)/);
 
-    // Prepare the result
-    return {
-      timestamp: new Date(),
-      hostname,
-      platform,
-      release,
-      type,
-      arch,
-      uptime,
-      loadAvg,
-      totalMem,
-      freeMem,
-      cpus: cpus.map((cpu) => ({
-        model: cpu.model,
-        speed: cpu.speed,
-        times: cpu.times,
-      })),
-      ipAddresses,
-      ...enhancedInfo,
-    };
+      osInfo.fullName = nameMatch ? nameMatch[1] : "macOS";
+      osInfo.versionInfo = versionMatch ? versionMatch[1] : null;
+    } else if (platform === "win32") {
+      // Windows (basic info only - detailed info comes from PowerShell scan)
+      osInfo.fullName = "Windows";
+      osInfo.versionInfo = release;
+    }
   } catch (error) {
-    console.error("Error gathering system information:", error);
+    console.warn("Error getting detailed OS info:", error.message);
+  }
+
+  // Return collected data
+  return {
+    hostname,
+    osInfo,
+    cpuInfo: {
+      model: cpus.length > 0 ? cpus[0].model : "Unknown",
+      cores: cpus.length,
+      speed: cpus.length > 0 ? cpus[0].speed : 0,
+    },
+    memory: {
+      total: totalmem,
+      free: freemem,
+      usedPercent: Math.round(((totalmem - freemem) / totalmem) * 100),
+    },
+    uptime,
+    loadAverage: loadavg,
+    networkInterfaces,
+  };
+}
+
+/**
+ * Scan hostname and IP addresses
+ * @param {string} target - Target hostname
+ * @param {Object} options - Scan options
+ * @param {boolean} options.skipNetworkConfig - Skip detailed network configuration
+ * @param {boolean} options.quickScan - Perform a quick scan
+ * @returns {Promise<Object>} System information
+ */
+async function scanHostname_IPs(target, options = {}) {
+  const { skipNetworkConfig = false, quickScan = false } = options;
+
+  try {
+    console.log(`Collecting system information for ${target}...`);
+
+    // Get raw system data
+    const rawData = await collectSystemData();
+
+    // Format the data for a cleaner response
+    const result = {
+      timestamp: new Date(),
+      hostname: rawData.hostname,
+      osInfo: {
+        name: rawData.osInfo.fullName || rawData.osInfo.name,
+        platform: rawData.osInfo.platform,
+        kernelVersion: rawData.osInfo.kernelVersion,
+        version: rawData.osInfo.versionInfo,
+        arch: rawData.arch,
+      },
+      system: {
+        uptime: rawData.uptime,
+        cpu: {
+          model: rawData.cpuInfo.model,
+          cores: rawData.cpuInfo.cores,
+        },
+        memory: {
+          total: rawData.memory.total,
+          free: rawData.memory.free,
+          usedPercent: rawData.memory.usedPercent,
+        },
+      },
+    };
+
+    // Add network information if not skipped
+    if (!skipNetworkConfig) {
+      const formattedInterfaces = formatNetworkInterfaces(
+        rawData.networkInterfaces
+      );
+      result.primaryIp = getPrimaryIp(formattedInterfaces);
+      result.network = {
+        interfaces: formattedInterfaces,
+      };
+    }
+
+    console.log("System information collected successfully");
+    return result;
+  } catch (error) {
+    console.error("Error scanning system information:", error);
     throw error;
   }
 }
 
-export { scanHostname_IPs, getEnhancedSystemInfo };
+export {
+  scanHostname_IPs,
+  collectSystemData,
+  formatNetworkInterfaces,
+  getPrimaryIp,
+};

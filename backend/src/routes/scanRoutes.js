@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import {
   getScanToolsStatus,
   runScan,
@@ -16,42 +17,86 @@ router.get("/tools", async (req, res) => {
     res.json(status);
   } catch (error) {
     console.error("Error checking scan tools status:", error);
-    res
-      .status(500)
-      .json({
-        error: "Failed to check scan tools status",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Failed to check scan tools status",
+      details: error.message,
+    });
   }
 });
 
-// Start a scan
+// Update the start scan route to handle the simplified options
 router.post("/start", async (req, res) => {
   try {
-    const { target, runNmap = true, runLynis = true, runPowerShell } = req.body;
-    const outputDir = path.join(
-      req.dirs.scansDir,
-      new Date().toISOString().replace(/[:.]/g, "-")
-    );
+    const {
+      target,
+      runNmap = true,
+      runLynis = true,
+      runPowerShell,
+      scanOptions = {},
+    } = req.body;
 
-    const scanOptions = {
+    // Transform the simplified scan options from frontend to backend options
+    let backendScanOptions = {};
+
+    if (scanOptions.systemScan !== undefined) {
+      // System scan includes packages and vulnerabilities
+      backendScanOptions.scanPackages = scanOptions.systemScan;
+      backendScanOptions.scanVulnerabilities = scanOptions.systemScan;
+    }
+
+    if (scanOptions.networkScan !== undefined) {
+      // Network scan includes network configuration
+      backendScanOptions.scanNetworkConfig = scanOptions.networkScan;
+    }
+
+    if (scanOptions.servicesScan !== undefined) {
+      // Services scan includes running services
+      backendScanOptions.scanServices = scanOptions.servicesScan;
+    }
+
+    // Update the backend scan options default for packages
+    // Set defaults for options not explicitly set
+    backendScanOptions = {
+      scanPackages: false, // Changed from true to false
+      scanServices: true,
+      scanVulnerabilities: true,
+      scanNetworkConfig: true,
+      quickScan: false,
+      ...backendScanOptions,
+    };
+
+    const scanId = new Date().toISOString().replace(/[:.]/g, "-");
+    const outputDir = path.join(req.dirs.scansDir, scanId);
+
+    // Create the output directory if it doesn't exist
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    const scanConfig = {
       target: target || "localhost",
       runNmap,
       runLynis,
       runPowerShell,
       outputDir,
+      // Use the transformed backend options
+      ...backendScanOptions,
     };
 
-    // Run scan (this can take some time)
-    const scanResults = await runScan(scanOptions);
+    console.log("Starting scan with options:", scanConfig);
 
+    // Run scan (this can take some time)
+    const scanResults = await runScan(scanConfig);
+
+    // Return scan results to client
     res.json({
       success: true,
-      scanId: path.basename(outputDir),
+      scanId: scanId,
       timestamp: scanResults.timestamp,
       target: scanResults.target,
       scanStatus: scanResults.scanStatus,
-      outputFiles: scanResults.outputFiles,
+      reportFile: scanResults.reportFile,
+      errors: scanResults.errors || {}, // Include any errors in the response
     });
   } catch (error) {
     console.error("Error running scan:", error);
@@ -70,12 +115,10 @@ router.get("/history", async (req, res) => {
     res.json(scanHistory);
   } catch (error) {
     console.error("Error retrieving scan history:", error);
-    res
-      .status(500)
-      .json({
-        error: "Failed to retrieve scan history",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Failed to retrieve scan history",
+      details: error.message,
+    });
   }
 });
 
@@ -89,12 +132,10 @@ router.get("/:scanId", async (req, res) => {
       res.status(404).json({ error: "Scan not found", details: error.message });
     } else {
       console.error(`Error retrieving scan ${req.params.scanId}:`, error);
-      res
-        .status(500)
-        .json({
-          error: "Failed to retrieve scan results",
-          details: error.message,
-        });
+      res.status(500).json({
+        error: "Failed to retrieve scan results",
+        details: error.message,
+      });
     }
   }
 });

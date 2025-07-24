@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
-  LinearProgress,
   Chip,
   List,
   ListItem,
@@ -15,11 +14,8 @@ import {
   Button,
   useTheme,
   alpha,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent,
   CircularProgress,
+  TextField,
 } from "@mui/material";
 
 import {
@@ -30,11 +26,11 @@ import {
   Computer as ComputerIcon,
   Apps as AppsIcon,
   Refresh as RefreshIcon,
-  Info as InfoIcon,
+  Warning as WarningIcon,
 } from "@mui/icons-material";
 
 import BaseDialog from "../../common/BaseDialog";
-import { api } from "../../../services/api";
+import { scanApi, parserApi } from "../../../services/api";
 
 interface ScanDialogProps {
   open: boolean;
@@ -49,132 +45,201 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
 }) => {
   const theme = useTheme();
   const [isScanning, setIsScanning] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [scanResults, setScanResults] = useState<any | null>(null);
-  const [scanStage, setScanStage] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-  const [activeStep, setActiveStep] = useState(0);
+  const [scanId, setScanId] = useState<string | null>(null);
 
-  // Progress simulation interval
-  const [progressInterval, setProgressInterval] = useState<number | null>(null);
+  // Scan options
+  const [target, setTarget] = useState<string>("localhost");
+
+  // Always scan with all options enabled
+  const scanOptions = {
+    systemScan: true,
+    networkScan: true,
+    servicesScan: true,
+  };
+
+  // Check if Windows platform
+  const isWindows = navigator.userAgent.toLowerCase().includes("win");
 
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
       setScanResults(null);
-      setProgress(0);
       setError(null);
-      setScanStage("");
-      setActiveStep(0);
+      setScanId(null);
+      setTarget("localhost");
     }
   }, [open]);
 
-  // Steps for the scanning process
-  const scanSteps = [
-    {
-      label: "Network Discovery",
-      description: "Identifying network interfaces and services",
-      icon: <NetworkIcon />,
-    },
-    {
-      label: "System Information",
-      description: "Collecting system details and configuration",
-      icon: <ComputerIcon />,
-    },
-    {
-      label: "Security Analysis",
-      description: "Checking for open ports and running services",
-      icon: <SecurityIcon />,
-    },
-    {
-      label: "Asset Inventory",
-      description: "Creating inventory of applications and services",
-      icon: <AppsIcon />,
-    },
-  ];
+  // Simple scanning message
+  const scanningMessage = "Scanning your system. This may take a minute...";
 
+  // Update the handleStartScan function to use the simplified options
   const handleStartScan = async () => {
     setIsScanning(true);
-    setProgress(0);
     setScanResults(null);
     setError(null);
-    setActiveStep(0);
+    setScanId(null);
 
     try {
-      // Start progress simulation
-      const interval = window.setInterval(() => {
-        setProgress((prevProgress) => {
-          // Update scan stage and active step based on progress
-          if (prevProgress < 25) {
-            setScanStage("Scanning network...");
-            setActiveStep(0);
-          } else if (prevProgress < 50) {
-            setScanStage("Gathering system information...");
-            setActiveStep(1);
-          } else if (prevProgress < 75) {
-            setScanStage("Analyzing security...");
-            setActiveStep(2);
-          } else if (prevProgress < 95) {
-            setScanStage("Building asset inventory...");
-            setActiveStep(3);
-          } else {
-            setScanStage("Finalizing results...");
-          }
+      // Get OS info to determine which scan to run
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isWindows = userAgent.includes("win");
+      const isMac = userAgent.includes("mac");
+      const isLinux = userAgent.includes("linux");
 
-          return prevProgress >= 95 ? 95 : prevProgress + 1;
-        });
-      }, 150);
+      // Always run all scan options
+      const scanResult = await scanApi.startScan({
+        target,
+        runNmap: true,
+        runLynis: isLinux || isMac,
+        runPowerShell: isWindows,
+        scanOptions: {
+          systemScan: true,
+          networkScan: true,
+          servicesScan: true,
+        },
+      });
 
-      setProgressInterval(interval as unknown as number);
-
-      // Call the API to start the scan - targeting localhost
-      const result = await api.scan.startScan("127.0.0.1");
-
-      // Wait a moment to simulate processing
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Get the latest scan results
-      const latestScan = await api.scan.getLatestScan();
-
-      // Clear the interval
-      if (progressInterval) {
-        clearInterval(progressInterval);
+      // Store the scan ID for later use
+      const newScanId = scanResult?.scanId;
+      if (!newScanId) {
+        throw new Error("No scan ID returned from API");
       }
 
-      // Set progress to 100% when done
-      setProgress(100);
-      setScanStage("Scan completed");
-      setScanResults(latestScan);
+      setScanId(newScanId);
 
-      // Pass the results to the parent component
-      onScanComplete(true, {
-        scanDate: new Date(),
-        target: "127.0.0.1",
-        assetsFound: 1,
-        results: latestScan,
-      });
+      // Check if the scan was successful by looking at overall status
+      if (scanResult?.scanStatus?.overall === "failed") {
+        throw new Error(
+          `Scan failed: ${scanResult.errors?.overall || "Unknown error"}`
+        );
+      }
+
+      try {
+        // Parse the scan results using the scanId we just received
+        const parsedResults = await parserApi.parseScan(newScanId);
+
+        setIsScanning(false);
+        setScanResults(parsedResults);
+
+        // Pass the results to the parent component
+        onScanComplete(true, {
+          scanDate: new Date(),
+          target,
+          scanId: newScanId,
+          results: parsedResults,
+        });
+      } catch (parseError) {
+        console.error("Error parsing scan results:", parseError);
+
+        setIsScanning(false);
+
+        // Store a partial result
+        const partialResult = {
+          scanDate: new Date(),
+          scanId: newScanId,
+          parsedResults: {
+            assetInfo: {
+              hostname: target,
+              ipAddress: target === "localhost" ? "127.0.0.1" : target,
+              status: "active",
+              osName: isWindows
+                ? "Windows"
+                : isMac
+                ? "macOS"
+                : isLinux
+                ? "Linux"
+                : "Unknown",
+              osVersion: "",
+            },
+          },
+        };
+
+        setScanResults(partialResult);
+
+        // Show error but don't stop the process
+        setError(
+          "Scan completed, but there was an issue processing the results. Some information may be incomplete."
+        );
+
+        // Still notify parent of partial success
+        onScanComplete(true, {
+          scanDate: new Date(),
+          target,
+          scanId: newScanId,
+          results: partialResult,
+          partial: true,
+        });
+      }
     } catch (error) {
       console.error("Scan failed:", error);
 
-      // Clear the interval
-      if (progressInterval) {
-        clearInterval(progressInterval);
+      setIsScanning(false);
+
+      // Determine the specific error message
+      let errorMessage =
+        "Scan failed. Please check if the backend server is running and try again.";
+
+      if (error instanceof Error) {
+        if (
+          error.message.includes("administrator") ||
+          error.message.includes("elevation")
+        ) {
+          errorMessage =
+            "Scan failed because it requires administrator privileges. Please run the application as administrator.";
+        } else if (
+          error.message.includes("ECONNREFUSED") ||
+          error.message.includes("Network Error")
+        ) {
+          errorMessage =
+            "Cannot connect to the backend server. Please make sure it's running.";
+        } else if (error.message.includes("scanId")) {
+          errorMessage =
+            "Scan was initiated but no valid scan ID was returned. Check the backend logs.";
+        } else if (error.message.includes("timeout")) {
+          errorMessage =
+            "Scan timed out. The target system might be unreachable or the scan takes too long.";
+        } else if (error.message.includes("not installed")) {
+          errorMessage =
+            "Required scan tools are not installed. Check the backend logs for details.";
+        } else {
+          // Use the actual error message for other cases
+          errorMessage = `Scan failed: ${error.message}`;
+        }
       }
 
-      setIsScanning(false);
-      setProgress(0);
-      setScanStage("");
-      setError(
-        "Scan failed. Please check if the backend server is running and try again."
-      );
+      setError(errorMessage);
+      onScanComplete(false, { error: errorMessage });
+    }
+  };
 
-      onScanComplete(false, { error: "Scan failed. Please try again." });
+  const handleSaveResults = async () => {
+    if (!scanId) {
+      setError("No scan ID available. Cannot save results.");
+      return;
+    }
+
+    try {
+      const saveResult = await parserApi.saveScanResults(scanId);
+      onScanComplete(true, {
+        scanDate: new Date(),
+        target,
+        scanId,
+        results: scanResults,
+        savedAsset: saveResult.asset,
+      });
+      onClose();
+    } catch (err) {
+      console.error("Failed to save scan results:", err);
+      setError("Failed to save scan results to database");
     }
   };
 
   const renderScanResults = () => {
-    if (!scanResults || !scanResults.asset) return null;
-    const asset = scanResults.asset;
+    if (!scanResults || !scanResults.parsedResults) return null;
+    const asset = scanResults.parsedResults.assetInfo;
 
     return (
       <Paper
@@ -244,8 +309,19 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
                     primary={
                       <Typography variant="body2">Operating System</Typography>
                     }
-                    secondary={`${asset.os?.name || "Unknown"} ${
-                      asset.os?.version || ""
+                    secondary={`${asset.osName || "Unknown"} ${
+                      asset.osVersion || ""
+                    } ${asset.osBuildNumber || ""}`}
+                  />
+                </ListItem>
+                <ListItem sx={{ py: 0.5 }}>
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <DnsIcon fontSize="small" color="primary" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={<Typography variant="body2">Platform</Typography>}
+                    secondary={`${asset.osPlatform || "Unknown"} | Kernel: ${
+                      asset.osKernelVersion || "Unknown"
                     }`}
                   />
                 </ListItem>
@@ -263,7 +339,7 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
               >
                 <Typography variant="body2">Running Services:</Typography>
                 <Typography variant="body2" fontWeight="bold">
-                  {asset.services?.filter(
+                  {scanResults.parsedResults.services?.filter(
                     (s: { status: string }) => s.status === "running"
                   ).length || 0}
                 </Typography>
@@ -273,13 +349,13 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
               >
                 <Typography variant="body2">Total Services:</Typography>
                 <Typography variant="body2" fontWeight="bold">
-                  {asset.services?.length || 0}
+                  {scanResults.parsedResults.services?.length || 0}
                 </Typography>
               </Box>
               <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                 <Typography variant="body2">Applications:</Typography>
                 <Typography variant="body2" fontWeight="bold">
-                  {asset.applications?.length || 0}
+                  {scanResults.parsedResults.applications?.length || 0}
                 </Typography>
               </Box>
             </Paper>
@@ -295,8 +371,8 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
           >
             Scan Again
           </Button>
-          <Button variant="contained" onClick={onClose}>
-            Done
+          <Button variant="contained" onClick={handleSaveResults}>
+            Save & Close
           </Button>
         </Box>
       </Paper>
@@ -319,26 +395,41 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
       size="md"
     >
       <Box sx={{ mt: 2 }}>
-        {/* Target information */}
-        <Paper
-          elevation={0}
-          variant="outlined"
-          sx={{
-            p: 2,
-            mb: 3,
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-            borderRadius: 2,
-            backgroundColor: alpha(theme.palette.info.main, 0.05),
-          }}
-        >
-          <InfoIcon color="info" />
-          <Typography variant="body2" color="text.secondary">
-            This scan will analyze your local system (127.0.0.1) to identify
-            network configuration, running services, and installed applications.
-          </Typography>
-        </Paper>
+        {/* Admin warning for Windows */}
+        {isWindows && !isScanning && !scanResults && (
+          <Alert severity="warning" icon={<WarningIcon />} sx={{ mb: 2 }}>
+            Windows system scan requires administrator privileges. Some features
+            may not work if the application is not running as administrator.
+          </Alert>
+        )}
+
+        {/* Scan options */}
+        {!isScanning && !scanResults && (
+          <>
+            <Paper
+              elevation={0}
+              variant="outlined"
+              sx={{
+                p: 2,
+                mb: 2,
+                borderRadius: 2,
+              }}
+            >
+              <Typography variant="subtitle2" gutterBottom>
+                Scan Target
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                label="Target IP or Hostname"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                margin="dense"
+                helperText="Enter IP address or hostname (default: localhost)"
+              />
+            </Paper>
+          </>
+        )}
 
         {/* Error Message */}
         {error && (
@@ -347,95 +438,25 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
           </Alert>
         )}
 
-        {/* Scan Progress */}
+        {/* Scanning Message */}
         {isScanning && (
-          <Box sx={{ mb: 3 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-              <CircularProgress size={24} thickness={4} />
-              <Typography variant="subtitle1">{scanStage}</Typography>
-            </Box>
-
-            <LinearProgress
-              variant="determinate"
-              value={progress}
-              sx={{ height: 8, borderRadius: 4, mb: 1 }}
-            />
-
-            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-              <Typography variant="caption" color="text.secondary">
-                {progress}% Complete
-              </Typography>
-            </Box>
-
-            <Stepper
-              activeStep={activeStep}
-              orientation="vertical"
-              sx={{ mt: 3 }}
-            >
-              {scanSteps.map((step, index) => (
-                <Step key={step.label}>
-                  <StepLabel
-                    StepIconComponent={() => (
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: "50%",
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          backgroundColor:
-                            index === activeStep
-                              ? alpha(theme.palette.primary.main, 0.8)
-                              : index < activeStep
-                              ? alpha(theme.palette.success.main, 0.8)
-                              : alpha(theme.palette.grey[500], 0.2),
-                          color:
-                            index <= activeStep ? "white" : "text.secondary",
-                        }}
-                      >
-                        {step.icon}
-                      </Box>
-                    )}
-                  >
-                    <Typography
-                      variant="body2"
-                      fontWeight={index === activeStep ? "bold" : "normal"}
-                    >
-                      {step.label}
-                    </Typography>
-                  </StepLabel>
-                  <StepContent>
-                    <Typography variant="caption" color="text.secondary">
-                      {step.description}
-                    </Typography>
-                  </StepContent>
-                </Step>
-              ))}
-            </Stepper>
+          <Box
+            sx={{
+              mb: 3,
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              justifyContent: "center",
+              py: 4,
+            }}
+          >
+            <CircularProgress size={30} thickness={4} />
+            <Typography variant="subtitle1">{scanningMessage}</Typography>
           </Box>
         )}
 
         {/* Scan Results */}
         {scanResults && renderScanResults()}
-
-        {/* Initial state - not scanning and no results yet */}
-        {!isScanning && !scanResults && !error && (
-          <Box sx={{ textAlign: "center", py: 4 }}>
-            <Typography variant="body1" paragraph>
-              Click "Start Scan" to discover information about your system.
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              size="large"
-              onClick={handleStartScan}
-              startIcon={<SecurityIcon />}
-            >
-              Start Scan
-            </Button>
-          </Box>
-        )}
       </Box>
     </BaseDialog>
   );

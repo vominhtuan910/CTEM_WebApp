@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Button, CircularProgress } from "@mui/material";
-import { SecurityOutlined } from "@mui/icons-material";
-import { api } from "../../../services/api";
-import toast from "react-hot-toast";
+import { Button, CircularProgress, Tooltip, Box } from "@mui/material";
+import { SecurityOutlined, InfoOutlined } from "@mui/icons-material";
+import { scanApi } from "../../../services/api";
+import { toast } from "react-hot-toast";
 
 interface ScanButtonProps {
   onScanComplete: (success: boolean, data?: any) => void;
@@ -10,6 +10,9 @@ interface ScanButtonProps {
 
 const ScanButton: React.FC<ScanButtonProps> = ({ onScanComplete }) => {
   const [isScanning, setIsScanning] = useState(false);
+
+  // Check if platform is Windows for admin warning
+  const isWindows = navigator.platform.toLowerCase().includes("win");
 
   const handleScan = async () => {
     setIsScanning(true);
@@ -19,10 +22,15 @@ const ScanButton: React.FC<ScanButtonProps> = ({ onScanComplete }) => {
       toast.loading("Starting security scan...", { id: "scan-toast" });
 
       // Use the real API to start a scan
-      const result = await api.scan.startScan("127.0.0.1");
+      const scanResult = await scanApi.startScan({
+        target: "localhost",
+        runNmap: true,
+        runLynis: true,
+        runPowerShell: true,
+      });
 
-      // After scan completes, get the port data
-      const portData = await api.scan.getPorts();
+      // Get scan tools status
+      const toolsStatus = await scanApi.getScanToolsStatus();
 
       // Update toast notification
       toast.success("Scan completed successfully!", { id: "scan-toast" });
@@ -30,20 +38,37 @@ const ScanButton: React.FC<ScanButtonProps> = ({ onScanComplete }) => {
       setIsScanning(false);
       onScanComplete(true, {
         scanDate: new Date(),
-        ports: portData,
+        scanId: scanResult.scanId,
+        toolsStatus,
       });
     } catch (error) {
       console.error("Scan failed:", error);
       setIsScanning(false);
 
-      // Show error toast
-      toast.error("Scan failed. Please try again.", { id: "scan-toast" });
+      // Check if the error is related to admin privileges
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const isAdminError =
+        errorMsg.toLowerCase().includes("administrator") ||
+        errorMsg.toLowerCase().includes("elevation");
 
-      onScanComplete(false, { error: "Scan failed. Please try again." });
+      // Show appropriate error message
+      if (isAdminError) {
+        toast.error(
+          "Scan requires administrator privileges. Please restart the application as administrator.",
+          {
+            id: "scan-toast",
+            duration: 5000,
+          }
+        );
+      } else {
+        toast.error("Scan failed. Please try again.", { id: "scan-toast" });
+      }
+
+      onScanComplete(false, { error: errorMsg });
     }
   };
 
-  return (
+  const scanButton = (
     <Button
       variant="contained"
       color="primary"
@@ -57,9 +82,29 @@ const ScanButton: React.FC<ScanButtonProps> = ({ onScanComplete }) => {
       onClick={handleScan}
       disabled={isScanning}
       sx={{ borderRadius: 2 }}
+      endIcon={isWindows ? <InfoOutlined fontSize="small" /> : undefined}
     >
       {isScanning ? "Scanning..." : "Scan for Vulnerabilities"}
     </Button>
+  );
+
+  // Wrap with tooltip only on Windows
+  return isWindows ? (
+    <Tooltip
+      title={
+        <Box sx={{ p: 0.5 }}>
+          Full system scanning requires administrator privileges on Windows.
+          <br />
+          Some features may not work if not running as administrator.
+        </Box>
+      }
+      arrow
+      placement="bottom"
+    >
+      <span>{scanButton}</span>
+    </Tooltip>
+  ) : (
+    scanButton
   );
 };
 
