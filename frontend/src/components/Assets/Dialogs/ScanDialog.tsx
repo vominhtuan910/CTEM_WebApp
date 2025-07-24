@@ -2,10 +2,8 @@ import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
-  TextField,
   LinearProgress,
   Chip,
-  Stack,
   List,
   ListItem,
   ListItemIcon,
@@ -21,55 +19,27 @@ import {
   Step,
   StepLabel,
   StepContent,
+  CircularProgress,
 } from "@mui/material";
+
 import {
   NetworkCheck as NetworkIcon,
-  Storage as StorageIcon,
   Dns as DnsIcon,
   Security as SecurityIcon,
   Check as CheckIcon,
   Computer as ComputerIcon,
   Apps as AppsIcon,
-  Memory as MemoryIcon,
-  Layers as LayersIcon,
-  Speed as SpeedIcon,
   Refresh as RefreshIcon,
+  Info as InfoIcon,
 } from "@mui/icons-material";
+
 import BaseDialog from "../../common/BaseDialog";
 import { api } from "../../../services/api";
-import toast from "react-hot-toast";
 
 interface ScanDialogProps {
   open: boolean;
   onClose: () => void;
   onScanComplete: (success: boolean, data?: any) => void;
-}
-
-interface ScanResults {
-  asset?: {
-    hostname?: string;
-    ipAddress?: string;
-    os?: {
-      name?: string;
-      version?: string;
-    };
-    services?: Array<{
-      name: string;
-      displayName: string;
-      status: string;
-      port?: number;
-    }>;
-    applications?: Array<{
-      name: string;
-      version: string;
-      publisher: string;
-    }>;
-  };
-  raw?: {
-    portData?: any;
-    systemInfo?: any;
-    detailedScan?: any;
-  };
 }
 
 const ScanDialog: React.FC<ScanDialogProps> = ({
@@ -78,10 +48,9 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
   onScanComplete,
 }) => {
   const theme = useTheme();
-  const [targetIP, setTargetIP] = useState("127.0.0.1");
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [scanResults, setScanResults] = useState<ScanResults | null>(null);
+  const [scanResults, setScanResults] = useState<any | null>(null);
   const [scanStage, setScanStage] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState(0);
@@ -103,24 +72,24 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
   // Steps for the scanning process
   const scanSteps = [
     {
-      label: "Basic Network Scan",
-      description: "Scanning network ports and identifying open services",
+      label: "Network Discovery",
+      description: "Identifying network interfaces and services",
       icon: <NetworkIcon />,
     },
     {
       label: "System Information",
-      description: "Gathering system information and network interfaces",
+      description: "Collecting system details and configuration",
       icon: <ComputerIcon />,
     },
     {
-      label: "Detailed Analysis",
-      description: "Running detailed OS-specific scan",
+      label: "Security Analysis",
+      description: "Checking for open ports and running services",
       icon: <SecurityIcon />,
     },
     {
-      label: "Processing Results",
-      description: "Analyzing and formatting scan results",
-      icon: <LayersIcon />,
+      label: "Asset Inventory",
+      description: "Creating inventory of applications and services",
+      icon: <AppsIcon />,
     },
   ];
 
@@ -131,41 +100,35 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
     setError(null);
     setActiveStep(0);
 
-    // Show toast notification
-    toast.loading("Starting network scan...", { id: "asset-scan-toast" });
-
     try {
       // Start progress simulation
       const interval = window.setInterval(() => {
         setProgress((prevProgress) => {
-          if (prevProgress >= 95) {
-            clearInterval(interval);
-            return 95; // Leave the last 5% for processing results
-          }
-
           // Update scan stage and active step based on progress
           if (prevProgress < 25) {
-            setScanStage("Scanning network ports...");
+            setScanStage("Scanning network...");
             setActiveStep(0);
           } else if (prevProgress < 50) {
             setScanStage("Gathering system information...");
             setActiveStep(1);
           } else if (prevProgress < 75) {
-            setScanStage("Running detailed scan...");
+            setScanStage("Analyzing security...");
             setActiveStep(2);
-          } else {
-            setScanStage("Processing results...");
+          } else if (prevProgress < 95) {
+            setScanStage("Building asset inventory...");
             setActiveStep(3);
+          } else {
+            setScanStage("Finalizing results...");
           }
 
-          return prevProgress + 1;
+          return prevProgress >= 95 ? 95 : prevProgress + 1;
         });
       }, 150);
 
       setProgressInterval(interval as unknown as number);
 
-      // Call the API to start the scan
-      const result = await api.scan.startScan(targetIP);
+      // Call the API to start the scan - targeting localhost
+      const result = await api.scan.startScan("127.0.0.1");
 
       // Wait a moment to simulate processing
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -183,13 +146,10 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
       setScanStage("Scan completed");
       setScanResults(latestScan);
 
-      // Update toast notification
-      toast.success("Scan completed successfully!", { id: "asset-scan-toast" });
-
       // Pass the results to the parent component
       onScanComplete(true, {
         scanDate: new Date(),
-        target: targetIP,
+        target: "127.0.0.1",
         assetsFound: 1,
         results: latestScan,
       });
@@ -208,9 +168,6 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
         "Scan failed. Please check if the backend server is running and try again."
       );
 
-      // Show error toast
-      toast.error("Scan failed. Please try again.", { id: "asset-scan-toast" });
-
       onScanComplete(false, { error: "Scan failed. Please try again." });
     }
   };
@@ -220,177 +177,127 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
     const asset = scanResults.asset;
 
     return (
-      <Paper variant="outlined" sx={{ p: 2, mt: 2 }}>
-        <Typography
-          variant="subtitle1"
-          gutterBottom
-          fontWeight="bold"
-          color="primary"
+      <Paper
+        elevation={0}
+        variant="outlined"
+        sx={{
+          p: 3,
+          mt: 3,
+          borderRadius: 2,
+          backgroundColor: alpha(theme.palette.background.paper, 0.7),
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
+          }}
         >
-          Scan Results Summary
-        </Typography>
+          <Typography variant="h6" color="primary">
+            Scan Complete
+          </Typography>
+          <Chip
+            icon={<CheckIcon />}
+            label="Success"
+            color="success"
+            size="small"
+            sx={{ height: 24 }}
+          />
+        </Box>
 
-        <Grid container spacing={2}>
-          {/* System Information */}
+        <Divider sx={{ mb: 2 }} />
+
+        <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" color="primary" gutterBottom>
-                System Information
-              </Typography>
-              <List dense>
-                <ListItem>
-                  <ListItemIcon>
-                    <DnsIcon fontSize="small" />
+            <Typography variant="subtitle2" gutterBottom color="textSecondary">
+              System Information
+            </Typography>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+              <List dense disablePadding>
+                <ListItem sx={{ py: 0.5 }}>
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <ComputerIcon fontSize="small" color="primary" />
                   </ListItemIcon>
                   <ListItemText
-                    primary="Hostname"
-                    secondary={asset.hostname || "N/A"}
+                    primary={<Typography variant="body2">Hostname</Typography>}
+                    secondary={asset.hostname || "localhost"}
                   />
                 </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <NetworkIcon fontSize="small" />
+                <ListItem sx={{ py: 0.5 }}>
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <NetworkIcon fontSize="small" color="primary" />
                   </ListItemIcon>
                   <ListItemText
-                    primary="IP Address"
-                    secondary={asset.ipAddress || "N/A"}
+                    primary={
+                      <Typography variant="body2">IP Address</Typography>
+                    }
+                    secondary={asset.ipAddress || "127.0.0.1"}
                   />
                 </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <ComputerIcon fontSize="small" />
+                <ListItem sx={{ py: 0.5 }}>
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <DnsIcon fontSize="small" color="primary" />
                   </ListItemIcon>
                   <ListItemText
-                    primary="Operating System"
+                    primary={
+                      <Typography variant="body2">Operating System</Typography>
+                    }
                     secondary={`${asset.os?.name || "Unknown"} ${
                       asset.os?.version || ""
                     }`}
                   />
                 </ListItem>
               </List>
-            </Box>
+            </Paper>
           </Grid>
 
-          {/* Services */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Typography variant="subtitle2" color="primary" gutterBottom>
-              Open Services
+            <Typography variant="subtitle2" gutterBottom color="textSecondary">
+              Services Summary
             </Typography>
-            {asset.services && asset.services.length > 0 ? (
-              <List dense>
-                {asset.services.slice(0, 5).map((service, index) => (
-                  <ListItem key={index}>
-                    <ListItemIcon>
-                      <StorageIcon fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={service.displayName}
-                      secondary={service.port ? `Port ${service.port}` : ""}
-                    />
-                    <Chip
-                      label={service.status}
-                      size="small"
-                      color={
-                        service.status === "running" ? "success" : "default"
-                      }
-                      sx={{ ml: 1 }}
-                    />
-                  </ListItem>
-                ))}
-                {asset.services.length > 5 && (
-                  <ListItem>
-                    <ListItemText
-                      secondary={`+ ${asset.services.length - 5} more services`}
-                    />
-                  </ListItem>
-                )}
-              </List>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                No open services detected
-              </Typography>
-            )}
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
+              >
+                <Typography variant="body2">Running Services:</Typography>
+                <Typography variant="body2" fontWeight="bold">
+                  {asset.services?.filter(
+                    (s: { status: string }) => s.status === "running"
+                  ).length || 0}
+                </Typography>
+              </Box>
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
+              >
+                <Typography variant="body2">Total Services:</Typography>
+                <Typography variant="body2" fontWeight="bold">
+                  {asset.services?.length || 0}
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2">Applications:</Typography>
+                <Typography variant="body2" fontWeight="bold">
+                  {asset.applications?.length || 0}
+                </Typography>
+              </Box>
+            </Paper>
           </Grid>
-
-          {/* Applications */}
-          {asset.applications && asset.applications.length > 0 && (
-            <Grid size={{ xs: 12 }}>
-              <Divider sx={{ my: 2 }} />
-              <Typography variant="subtitle2" color="primary" gutterBottom>
-                Installed Applications
-              </Typography>
-              <Grid container spacing={1}>
-                {asset.applications.slice(0, 6).map((app, index) => (
-                  <Grid key={index} size={{ xs: 12, sm: 6, md: 4 }}>
-                    <Paper
-                      variant="outlined"
-                      sx={{
-                        p: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                      }}
-                    >
-                      <AppsIcon color="action" fontSize="small" />
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          noWrap
-                          sx={{ fontWeight: "medium" }}
-                        >
-                          {app.name}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          noWrap
-                        >
-                          {app.version}{" "}
-                          {app.publisher ? `• ${app.publisher}` : ""}
-                        </Typography>
-                      </Box>
-                    </Paper>
-                  </Grid>
-                ))}
-                {asset.applications.length > 6 && (
-                  <Grid size={{ xs: 12 }}>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mt: 1 }}
-                    >
-                      + {asset.applications.length - 6} more applications
-                    </Typography>
-                  </Grid>
-                )}
-              </Grid>
-            </Grid>
-          )}
         </Grid>
 
-        <Box
-          sx={{
-            mt: 2,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
+        <Box sx={{ mt: 3, textAlign: "center" }}>
           <Button
             startIcon={<RefreshIcon />}
             onClick={handleStartScan}
-            disabled={isScanning}
             variant="outlined"
-            size="small"
+            sx={{ mr: 1 }}
           >
             Scan Again
           </Button>
-          <Chip
-            icon={<CheckIcon />}
-            label="Scan Complete"
-            color="success"
-            size="small"
-          />
+          <Button variant="contained" onClick={onClose}>
+            Done
+          </Button>
         </Box>
       </Paper>
     );
@@ -399,8 +306,8 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
   return (
     <BaseDialog
       isOpen={open}
-      title="Network Scan"
-      body="Scan your network to discover assets, open ports, services, and installed applications."
+      title="Asset Discovery Scan"
+      body="Scan your system to discover network configuration, services, and applications."
       primaryLabel={isScanning ? "Scanning..." : "Start Scan"}
       secondaryLabel="Close"
       onPrimary={handleStartScan}
@@ -408,86 +315,71 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
       closeOnBackdropClick={!isScanning}
       closeOnEsc={!isScanning}
       mode="default"
-      preLabel="Asset Discovery"
       disablePrimaryButton={isScanning}
       size="md"
     >
       <Box sx={{ mt: 2 }}>
-        {/* Target IP Input */}
-        <Typography variant="subtitle2" gutterBottom>
-          Target IP Address
-        </Typography>
-        <TextField
-          fullWidth
-          placeholder="e.g. 127.0.0.1"
-          value={targetIP}
-          onChange={(e) => setTargetIP(e.target.value)}
-          disabled={isScanning}
-          size="small"
-          sx={{ mb: 3 }}
-          helperText="Enter the IP address to scan. Use 127.0.0.1 for localhost."
-        />
-
-        {/* Scan Information */}
-        <Box sx={{ mb: 2 }}>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
-            <Chip
-              icon={<SecurityIcon />}
-              label="Port Scanning"
-              size="small"
-              color="primary"
-              variant="outlined"
-            />
-            <Chip
-              icon={<NetworkIcon />}
-              label="Network Analysis"
-              size="small"
-              color="secondary"
-              variant="outlined"
-            />
-            <Chip
-              icon={<DnsIcon />}
-              label="System Info"
-              size="small"
-              color="info"
-              variant="outlined"
-            />
-            <Chip
-              icon={<AppsIcon />}
-              label="Application Detection"
-              size="small"
-              color="success"
-              variant="outlined"
-            />
-            <Chip
-              icon={<MemoryIcon />}
-              label="Service Discovery"
-              size="small"
-              color="warning"
-              variant="outlined"
-            />
-          </Stack>
-        </Box>
+        {/* Target information */}
+        <Paper
+          elevation={0}
+          variant="outlined"
+          sx={{
+            p: 2,
+            mb: 3,
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            borderRadius: 2,
+            backgroundColor: alpha(theme.palette.info.main, 0.05),
+          }}
+        >
+          <InfoIcon color="info" />
+          <Typography variant="body2" color="text.secondary">
+            This scan will analyze your local system (127.0.0.1) to identify
+            network configuration, running services, and installed applications.
+          </Typography>
+        </Paper>
 
         {/* Error Message */}
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
 
-        {/* Scan Progress Stepper */}
+        {/* Scan Progress */}
         {isScanning && (
-          <Box sx={{ mt: 2 }}>
-            <Stepper activeStep={activeStep} orientation="vertical">
+          <Box sx={{ mb: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+              <CircularProgress size={24} thickness={4} />
+              <Typography variant="subtitle1">{scanStage}</Typography>
+            </Box>
+
+            <LinearProgress
+              variant="determinate"
+              value={progress}
+              sx={{ height: 8, borderRadius: 4, mb: 1 }}
+            />
+
+            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+              <Typography variant="caption" color="text.secondary">
+                {progress}% Complete
+              </Typography>
+            </Box>
+
+            <Stepper
+              activeStep={activeStep}
+              orientation="vertical"
+              sx={{ mt: 3 }}
+            >
               {scanSteps.map((step, index) => (
                 <Step key={step.label}>
                   <StepLabel
                     StepIconComponent={() => (
                       <Box
                         sx={{
-                          width: 28,
-                          height: 28,
+                          width: 24,
+                          height: 24,
                           borderRadius: "50%",
                           display: "flex",
                           justifyContent: "center",
@@ -506,7 +398,10 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
                       </Box>
                     )}
                   >
-                    <Typography variant="body2" fontWeight="medium">
+                    <Typography
+                      variant="body2"
+                      fontWeight={index === activeStep ? "bold" : "normal"}
+                    >
                       {step.label}
                     </Typography>
                   </StepLabel>
@@ -514,37 +409,33 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
                     <Typography variant="caption" color="text.secondary">
                       {step.description}
                     </Typography>
-                    {index === activeStep && (
-                      <LinearProgress
-                        variant="determinate"
-                        value={(progress % 25) * 4} // Scale to 0-100 for each step
-                        sx={{ mt: 1, height: 6, borderRadius: 3 }}
-                      />
-                    )}
                   </StepContent>
                 </Step>
               ))}
             </Stepper>
-            <Box
-              sx={{
-                mt: 2,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <Typography variant="caption" color="text.secondary">
-                {scanStage || "Preparing scan..."}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {progress}% Complete
-              </Typography>
-            </Box>
           </Box>
         )}
 
         {/* Scan Results */}
         {scanResults && renderScanResults()}
+
+        {/* Initial state - not scanning and no results yet */}
+        {!isScanning && !scanResults && !error && (
+          <Box sx={{ textAlign: "center", py: 4 }}>
+            <Typography variant="body1" paragraph>
+              Click "Start Scan" to discover information about your system.
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              size="large"
+              onClick={handleStartScan}
+              startIcon={<SecurityIcon />}
+            >
+              Start Scan
+            </Button>
+          </Box>
+        )}
       </Box>
     </BaseDialog>
   );

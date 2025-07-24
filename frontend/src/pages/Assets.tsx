@@ -15,24 +15,13 @@ import {
   Divider,
   alpha,
   useTheme,
-  Fab,
 } from "@mui/material";
-import {
-  GridView,
-  List,
-  Add,
-  CloudUpload,
-  FileDownload,
-  SecurityOutlined,
-  Refresh,
-  Search as SearchIcon,
-} from "@mui/icons-material";
+import { GridView, List, Add, SecurityOutlined } from "@mui/icons-material";
 import AssetCard from "../components/Assets/Cards/AssetCard";
 import AssetFilters from "../components/Assets/Filters/AssetFilters";
 import AssetFormDialog from "../components/Assets/Dialogs/AssetFormDialog";
 import AssetDetailsDialog from "../components/Assets/Dialogs/AssetDetailsDialog";
 import AssetExportDialog from "../components/Assets/Dialogs/AssetExportDialog";
-import ImportDialog from "../components/Assets/Dialogs/ImportDialog";
 import DeleteConfirmationDialog from "../components/Assets/Dialogs/DeleteConfirmationDialog";
 import ScanDialog from "../components/Assets/Dialogs/ScanDialog";
 import { Asset, AssetFilter } from "../types/asset.types";
@@ -51,10 +40,16 @@ const Assets = () => {
     osType: [],
   });
   const [isScanning, setIsScanning] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [importData, setImportData] = useState<{
+    showImport: boolean;
+    file: File | null;
+  }>({
+    showImport: false,
+    file: null,
+  });
 
   const [openDialog, setOpenDialog] = useState<
-    "add" | "import" | "view" | "edit" | "delete" | "scan" | null
+    "add" | "view" | "edit" | "delete" | "scan" | null
   >(null);
 
   // Hooks
@@ -82,42 +77,11 @@ const Assets = () => {
   const filteredAssets = filterAssets(assets, filters);
 
   // Scan for assets
-  const handleScanAssets = async () => {
-    setIsScanning(true);
-    toast.loading("Scanning for assets...", { id: "scan-toast" });
-
-    try {
-      // Start a scan
-      await api.scan.startScan("127.0.0.1");
-
-      // Wait a moment for scan to complete
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Refresh assets
+  const handleScanComplete = async (success: boolean, data?: any) => {
+    if (success) {
+      toast.success(`Scan completed! Asset information updated.`);
       await fetchAssets();
-
-      toast.success("Scan completed successfully!", { id: "scan-toast" });
-    } catch (error) {
-      console.error("Scan failed:", error);
-      toast.error("Scan failed. Please try again.", { id: "scan-toast" });
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
-  // Refresh assets
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    toast.loading("Refreshing assets...", { id: "refresh-toast" });
-
-    try {
-      await fetchAssets();
-      toast.success("Assets refreshed successfully!", { id: "refresh-toast" });
-    } catch (error) {
-      console.error("Refresh failed:", error);
-      toast.error("Failed to refresh assets.", { id: "refresh-toast" });
-    } finally {
-      setIsRefreshing(false);
+      setOpenDialog(null);
     }
   };
 
@@ -127,17 +91,7 @@ const Assets = () => {
     asset: Asset
   ) => {
     setSelectedAsset(asset);
-    switch (action) {
-      case "view":
-        setOpenDialog("view");
-        break;
-      case "edit":
-        setOpenDialog("edit");
-        break;
-      case "delete":
-        setOpenDialog("delete");
-        break;
-    }
+    setOpenDialog(action);
   };
 
   const handleConfirmDelete = async () => {
@@ -155,6 +109,7 @@ const Assets = () => {
     const success = await addAsset(assetData);
     if (success) {
       setOpenDialog(null);
+      setImportData({ showImport: false, file: null });
     }
   };
 
@@ -167,15 +122,15 @@ const Assets = () => {
     }
   };
 
-  const handleImportComplete = (data: any) => {
-    console.log("Import completed with data:", data);
-    toast.success(`Successfully imported ${data.importedCount} assets`);
-    fetchAssets(); // Refresh assets after import
+  const handleImportFile = (file: File) => {
+    setImportData({ showImport: true, file });
+    setOpenDialog("add");
   };
 
   const closeDialog = () => {
     setOpenDialog(null);
     setSelectedAsset(null);
+    setImportData({ showImport: false, file: null });
   };
 
   // Render asset statistics
@@ -342,64 +297,20 @@ const Assets = () => {
           Assets Management
         </Typography>
         <Box sx={{ display: "flex", gap: 2 }}>
-          <Tooltip title="Refresh assets">
-            <Button
-              variant="outlined"
-              color="info"
-              startIcon={<Refresh />}
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              sx={{
-                borderRadius: 2,
-                textTransform: "none",
-                "&:hover": {
-                  backgroundColor: alpha(theme.palette.info.main, 0.1),
-                },
-              }}
-            >
-              {isRefreshing ? "Refreshing..." : "Refresh"}
-            </Button>
-          </Tooltip>
-          <Tooltip title="Scan network for assets">
-            <Button
-              variant="contained"
-              color="secondary"
-              startIcon={<SecurityOutlined />}
-              onClick={() => setOpenDialog("scan")}
-              disabled={isScanning}
-              sx={{
-                borderRadius: 2,
-                textTransform: "none",
-                boxShadow: 2,
-                "&:hover": { boxShadow: 4 },
-              }}
-            >
-              {isScanning ? "Scanning..." : "Scan"}
-            </Button>
-          </Tooltip>
           <Button
-            variant="outlined"
-            startIcon={<FileDownload />}
-            onClick={() => toast.success("Export feature coming soon")}
+            variant="contained"
+            color="secondary"
+            startIcon={<SecurityOutlined />}
+            onClick={() => setOpenDialog("scan")}
+            disabled={isScanning}
             sx={{
               borderRadius: 2,
               textTransform: "none",
-              "&:hover": { backgroundColor: "action.hover" },
+              boxShadow: 2,
+              "&:hover": { boxShadow: 4 },
             }}
           >
-            Export
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<CloudUpload />}
-            onClick={() => setOpenDialog("import")}
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              "&:hover": { backgroundColor: "action.hover" },
-            }}
-          >
-            Import
+            {isScanning ? "Scanning..." : "Scan"}
           </Button>
           <Button
             variant="contained"
@@ -573,24 +484,6 @@ const Assets = () => {
         </Box>
       )}
 
-      {/* Floating Action Button for scanning */}
-      <Fab
-        color="secondary"
-        aria-label="scan"
-        sx={{
-          position: "fixed",
-          bottom: 24,
-          right: 24,
-          boxShadow: 3,
-          "&:hover": {
-            boxShadow: 6,
-          },
-        }}
-        onClick={() => setOpenDialog("scan")}
-      >
-        <SecurityOutlined />
-      </Fab>
-
       {/* Add/Edit Asset Dialog */}
       <AssetFormDialog
         open={openDialog === "add" || openDialog === "edit"}
@@ -599,6 +492,9 @@ const Assets = () => {
         onClose={closeDialog}
         onSubmit={openDialog === "add" ? handleAddAsset : handleEditAsset}
         isSubmitting={submitting}
+        importMode={importData.showImport}
+        importFile={importData.file}
+        onImportFile={handleImportFile}
       />
 
       {/* View Asset Dialog */}
@@ -630,30 +526,11 @@ const Assets = () => {
         onOptionsChange={updateExportOptions}
       />
 
-      {/* Import Dialog Component */}
-      <ImportDialog
-        open={openDialog === "import"}
-        onClose={closeDialog}
-        onImportComplete={handleImportComplete}
-      />
-
       {/* Scan Dialog Component */}
       <ScanDialog
         open={openDialog === "scan"}
         onClose={closeDialog}
-        onScanComplete={(success, data) => {
-          if (success) {
-            const assetsFound = data.assetsFound || 0;
-            toast.success(
-              `Scan completed! Found ${assetsFound} ${
-                assetsFound === 1 ? "asset" : "assets"
-              }.`
-            );
-            fetchAssets();
-            // Only close dialog if scan was successful
-            setOpenDialog(null);
-          }
-        }}
+        onScanComplete={handleScanComplete}
       />
     </Container>
   );

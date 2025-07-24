@@ -21,7 +21,6 @@ const TopNavigation: React.FC = () => {
     { to: "/dashboard", label: "Dashboard" },
     { to: "/issues", label: "Issues" },
     { to: "/assets", label: "Assets" },
-    { to: "/configurations", label: "Configurations" },
     { to: "/reports", label: "Reports" },
   ];
 
