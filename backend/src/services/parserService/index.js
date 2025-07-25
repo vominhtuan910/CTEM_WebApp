@@ -12,8 +12,6 @@ import { getSeverityLevel } from "../scanService/lynisScan.js";
 // This function parses scan results from various tools into a unified format
 export async function parseScanResults(scanResults) {
   try {
-    console.log("Parsing scan results:", typeof scanResults);
-
     // Extract asset information (focused on OS info)
     const assetInfo = extractAssetInfo(scanResults);
 
@@ -38,7 +36,7 @@ export async function parseScanResults(scanResults) {
       scanData: scanResults, // Store original scan data for reference
     };
   } catch (error) {
-    console.error("Error parsing scan results:", error);
+    console.error("Error parsing scan results:", error.message);
     throw new Error(`Failed to parse scan results: ${error.message}`);
   }
 }
@@ -46,11 +44,6 @@ export async function parseScanResults(scanResults) {
 // Extract basic asset information from scan results, focusing on OS info
 function extractAssetInfo(scanResults) {
   try {
-    console.log(
-      "Extracting asset info from scan results with keys:",
-      Object.keys(scanResults)
-    );
-
     // Initialize with default values, focusing only on basic and OS info
     const assetInfo = {
       hostname: "unknown",
@@ -88,7 +81,6 @@ function extractAssetInfo(scanResults) {
 
     // If we have systemInfo, extract from there
     if (scanResults.systemInfo) {
-      console.log("System info keys:", Object.keys(scanResults.systemInfo));
       const systemInfo = scanResults.systemInfo;
 
       // Hostname
@@ -220,13 +212,6 @@ function extractAssetInfo(scanResults) {
       }
     }
 
-    console.log("Extracted asset info:", {
-      hostname: assetInfo.hostname,
-      ipAddress: assetInfo.ipAddress,
-      osName: assetInfo.osName,
-      osVersion: assetInfo.osVersion,
-    });
-
     return assetInfo;
   } catch (error) {
     console.error("Error extracting asset info:", error);
@@ -254,6 +239,24 @@ function extractServices(scanResults) {
       return scanResults.services;
     }
 
+    // If we have network.runningServices in the scan results
+    if (
+      scanResults.network &&
+      scanResults.network.runningServices &&
+      Array.isArray(scanResults.network.runningServices)
+    ) {
+      // Map to standard service format if necessary
+      return scanResults.network.runningServices.map((service) => ({
+        name: service.name,
+        displayName: service.displayName || service.name,
+        status: service.status || "running",
+        startType: service.startType || "auto",
+        pid: service.pid || null,
+        port: service.port || null,
+        protocol: service.protocol || null,
+      }));
+    }
+
     // If we have port scan data
     if (scanResults.portScan && scanResults.portScan.openPorts) {
       return scanResults.portScan.openPorts.map((port) => ({
@@ -276,7 +279,7 @@ function extractServices(scanResults) {
     // Default empty array
     return [];
   } catch (error) {
-    console.error("Error extracting services:", error);
+    console.error("Error extracting services:", error.message);
     return [];
   }
 }
@@ -301,7 +304,7 @@ function extractApplications(scanResults) {
     // Default empty array
     return [];
   } catch (error) {
-    console.error("Error extracting applications:", error);
+    console.error("Error extracting applications:", error.message);
     return [];
   }
 }
@@ -344,7 +347,7 @@ async function extractVulnerabilities(scanResults) {
     // Default empty array
     return [];
   } catch (error) {
-    console.error("Error extracting vulnerabilities:", error);
+    console.error("Error extracting vulnerabilities:", error.message);
     return [];
   }
 }
@@ -514,7 +517,7 @@ export async function saveScanResults(parsedResults, assetId = null) {
               name: service.name,
               displayName: service.displayName || service.name,
               status: service.status || "unknown",
-              port: service.port || null,
+              port: service.port ? parseInt(service.port) : null,
               protocol: service.protocol || null,
               version: service.version || null,
               description: service.description || null,
@@ -606,7 +609,7 @@ export async function saveScanResults(parsedResults, assetId = null) {
       },
     });
   } catch (error) {
-    console.error("Error saving scan results to database:", error);
+    console.error("Error saving scan results to database:", error.message);
     throw error;
   }
 }
@@ -616,7 +619,7 @@ function getPrismaClient() {
   try {
     return new PrismaClient();
   } catch (error) {
-    console.error("Error creating Prisma client:", error);
+    console.error("Error creating Prisma client:", error.message);
     throw error;
   }
 }

@@ -12,6 +12,7 @@ import { checkNmapInstalled, scanPorts } from "./nmapScan.js";
 import { checkLynisInstalled, runLynisScan } from "./lynisScan.js";
 import { isWindows, runPowerShellScan } from "./windowsScan.js";
 import { scanHostname_IPs } from "./systemInfo.js";
+// PyExploitDB removed as requested
 
 /**
  * Get available scanning tools
@@ -152,42 +153,78 @@ function extractLynisSecurity(lynisResult) {
  * Run a comprehensive scan on the specified target
  * @param {Object} options - Scan options
  * @param {string} options.target - Target to scan (default: 'localhost')
- * @param {boolean} options.runNmap - Whether to run Nmap scan
- * @param {boolean} options.runLynis - Whether to run Lynis scan
- * @param {boolean} options.runPowerShell - Whether to run PowerShell scan
  * @param {string} options.outputDir - Directory to save scan outputs
  * @param {boolean} options.scanPackages - Whether to scan installed packages
  * @param {boolean} options.scanServices - Whether to scan running services
  * @param {boolean} options.scanVulnerabilities - Whether to scan vulnerabilities
  * @param {boolean} options.scanNetworkConfig - Whether to scan network config
  * @param {boolean} options.quickScan - Whether to run a quick scan (less depth)
+ * @param {boolean} options.autoDetectOS - Whether to auto-detect OS and tools (default: true)
+ * @param {boolean} options.runNmap - Override automatic tool selection for Nmap
+ * @param {boolean} options.runLynis - Override automatic tool selection for Lynis
+ * @param {boolean} options.runPowerShell - Override automatic tool selection for PowerShell
  * @returns {Promise<Object>} Scan results with file path
  */
 async function runScan(options) {
+  // Extract basic options
   const {
     target = "localhost",
-    runNmap = true,
-    runLynis = true,
-    runPowerShell = isWindows(),
     outputDir,
-    scanPackages = false, // Changed from true to false
+    scanPackages = false,
     scanServices = true,
     scanVulnerabilities = true,
     scanNetworkConfig = true,
     quickScan = false,
+    autoDetectOS = true,
   } = options;
 
-  // Add a log message about packages
+  // Detect platform
+  const platform = process.platform;
+  const isWin = platform === "win32";
+  const isLinux = platform === "linux";
+  const isMac = platform === "darwin";
+  const hasWSL = isWin && (await checkWSL());
+
+  // Auto-detect appropriate tools based on OS
+  let runNmap = true; // Nmap is useful on all platforms
+  let runLynis = false;
+  let runPowerShell = false;
+
+  if (autoDetectOS) {
+    if (isWin) {
+      // Windows-specific tool selection
+      runPowerShell = true;
+      runLynis = false; // Lynis is not native to Windows
+    } else if (isLinux || isMac || hasWSL) {
+      // Linux/macOS/WSL tool selection
+      runLynis = true;
+      runPowerShell = false; // PowerShell is Windows-specific
+    }
+  }
+
+  // Override with explicit options if provided
+  if (options.runNmap !== undefined) runNmap = options.runNmap;
+  if (options.runLynis !== undefined) runLynis = options.runLynis;
+  if (options.runPowerShell !== undefined)
+    runPowerShell = options.runPowerShell;
+
+  // Log the scan configuration
   console.log(`Running scan with options:`, {
     target,
-    runNmap,
-    runLynis,
-    runPowerShell,
-    scanPackages, // Now false by default
-    scanServices,
-    scanVulnerabilities,
-    scanNetworkConfig,
-    quickScan,
+    platform,
+    autoDetectOS,
+    toolSelection: {
+      runNmap,
+      runLynis,
+      runPowerShell,
+    },
+    scanConfig: {
+      scanPackages,
+      scanServices,
+      scanVulnerabilities,
+      scanNetworkConfig,
+      quickScan,
+    },
   });
 
   // Make sure output directory exists
@@ -203,6 +240,7 @@ async function runScan(options) {
     scanId: timestamp,
     timestamp: new Date(),
     target,
+    platform,
     scanStatus: {
       overall: "in_progress",
     },
@@ -214,11 +252,12 @@ async function runScan(options) {
     packages: {
       count: 0,
       outdated: [],
-      scanDisabled: true, // Add this flag to indicate packages scanning is disabled
+      scanDisabled: !scanPackages,
     },
     security: {
       findings: [],
       hardeningIndex: 0,
+      vulnerabilities: [],
     },
   };
 
@@ -252,7 +291,7 @@ async function runScan(options) {
       );
     }
 
-    // Run Nmap scan for network info
+    // Run Nmap scan for network info (cross-platform)
     if (runNmap) {
       console.log(`Running Nmap scan on ${target}`);
       try {
@@ -263,6 +302,45 @@ async function runScan(options) {
         // Update unified results with network info
         unifiedResults.network.openPorts = openPorts;
         unifiedResults.network.runningServices = runningServices;
+
+        // Add services to the top-level services property
+        if (!unifiedResults.services) {
+          unifiedResults.services = runningServices.map((service) => ({
+            name: service.name,
+            displayName: service.name,
+            status: "running",
+            startType: "auto",
+            pid: null,
+            port: service.port,
+            protocol: service.protocol,
+          }));
+        } else {
+          // Merge with existing services
+          const existingServiceNames = new Set(
+            unifiedResults.services.map((s) => s.name)
+          );
+          const newServices = runningServices
+            .filter((s) => !existingServiceNames.has(s.name))
+            .map((service) => ({
+              name: service.name,
+              displayName: service.name,
+              status: "running",
+              startType: "auto",
+              pid: null,
+              port: service.port,
+              protocol: service.protocol,
+            }));
+          unifiedResults.services = [
+            ...unifiedResults.services,
+            ...newServices,
+          ];
+        }
+
+        // Add a count property for UI display
+        unifiedResults.servicesCount = unifiedResults.services
+          ? unifiedResults.services.length
+          : 0;
+
         unifiedResults.scanStatus.nmap = "completed";
 
         // Update report file
@@ -282,8 +360,8 @@ async function runScan(options) {
       unifiedResults.scanStatus.nmap = "skipped";
     }
 
-    // Run Lynis scan for security info (Linux/macOS)
-    if (runLynis && (process.platform !== "win32" || (await checkWSL()))) {
+    // Run Lynis scan for security info (Linux/macOS/WSL)
+    if (runLynis && (isLinux || isMac || hasWSL)) {
       console.log(`Running Lynis security scan`);
       try {
         const lynisResult = await runLynisScan({
@@ -335,7 +413,7 @@ async function runScan(options) {
     }
 
     // Run PowerShell scan (Windows only)
-    if (runPowerShell && isWindows()) {
+    if (runPowerShell && isWin) {
       console.log(`Running PowerShell scan`);
       try {
         const powerShellResult = await runPowerShellScan({
@@ -345,18 +423,43 @@ async function runScan(options) {
         // Extract Windows-specific info
         if (scanServices && powerShellResult.Services) {
           const winServices = powerShellResult.Services.map((service) => ({
-            name: service.DisplayName || service.Name,
+            name: service.Name,
+            displayName: service.DisplayName || service.Name,
             status: "running",
+            startType: "auto",
+            pid: null,
+            port: null,
           }));
 
-          // Merge with existing services
+          // Add services to the network.runningServices for backward compatibility
           unifiedResults.network.runningServices = [
             ...unifiedResults.network.runningServices,
             ...winServices,
           ];
+
+          // Store services in the top-level services property needed by the UI
+          // If services already exist, merge with them
+          if (!unifiedResults.services) {
+            unifiedResults.services = winServices;
+          } else {
+            // Merge, avoiding duplicates by name
+            const existingServiceNames = new Set(
+              unifiedResults.services.map((s) => s.name)
+            );
+            const newServices = winServices.filter(
+              (s) => !existingServiceNames.has(s.name)
+            );
+            unifiedResults.services = [
+              ...unifiedResults.services,
+              ...newServices,
+            ];
+          }
+
+          // Add a count property for UI display
+          unifiedResults.servicesCount = unifiedResults.services.length;
         }
 
-        // Only extract software info if scanning packages is enabled (which is now false by default)
+        // Only extract software info if scanning packages is enabled
         if (
           scanPackages &&
           powerShellResult.Software &&
@@ -452,11 +555,8 @@ async function runScan(options) {
         unifiedResults.errors = unifiedResults.errors || {};
         unifiedResults.errors.powerShell = errorMessage;
 
-        // Still include basic system info that doesn't require admin rights
-        unifiedResults.systemInfo = unifiedResults.systemInfo || {};
-
         // We'll still set this as partially complete if we have system info
-        if (unifiedResults.systemInfo.hostname) {
+        if (unifiedResults.systemInfo && unifiedResults.systemInfo.hostname) {
           unifiedResults.scanStatus.powerShell = "partial";
         }
 

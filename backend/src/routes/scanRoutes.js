@@ -16,7 +16,7 @@ router.get("/tools", async (req, res) => {
     const status = await getScanToolsStatus();
     res.json(status);
   } catch (error) {
-    console.error("Error checking scan tools status:", error);
+    console.error("Error checking scan tools status");
     res.status(500).json({
       error: "Failed to check scan tools status",
       details: error.message,
@@ -24,14 +24,15 @@ router.get("/tools", async (req, res) => {
   }
 });
 
-// Update the start scan route to handle the simplified options
+// Update the POST /start endpoint
 router.post("/start", async (req, res) => {
   try {
     const {
       target,
-      runNmap = true,
-      runLynis = true,
+      runNmap,
+      runLynis,
       runPowerShell,
+      autoDetectOS = true,
       scanOptions = {},
     } = req.body;
 
@@ -57,7 +58,7 @@ router.post("/start", async (req, res) => {
     // Update the backend scan options default for packages
     // Set defaults for options not explicitly set
     backendScanOptions = {
-      scanPackages: false, // Changed from true to false
+      scanPackages: false,
       scanServices: true,
       scanVulnerabilities: true,
       scanNetworkConfig: true,
@@ -75,15 +76,18 @@ router.post("/start", async (req, res) => {
 
     const scanConfig = {
       target: target || "localhost",
-      runNmap,
-      runLynis,
-      runPowerShell,
       outputDir,
+      autoDetectOS, // Include autoDetectOS option
+      // Only include tool overrides if explicitly set
+      ...(runNmap !== undefined ? { runNmap } : {}),
+      ...(runLynis !== undefined ? { runLynis } : {}),
+      ...(runPowerShell !== undefined ? { runPowerShell } : {}),
       // Use the transformed backend options
       ...backendScanOptions,
     };
 
-    console.log("Starting scan with options:", scanConfig);
+    // Simple log about scan start
+    console.log(`Starting scan for ${target || "localhost"}`);
 
     // Run scan (this can take some time)
     const scanResults = await runScan(scanConfig);
@@ -94,49 +98,52 @@ router.post("/start", async (req, res) => {
       scanId: scanId,
       timestamp: scanResults.timestamp,
       target: scanResults.target,
+      platform: scanResults.platform,
       scanStatus: scanResults.scanStatus,
       reportFile: scanResults.reportFile,
       errors: scanResults.errors || {}, // Include any errors in the response
     });
   } catch (error) {
-    console.error("Error running scan:", error);
+    console.error("Error running scan");
     res
       .status(500)
       .json({ error: "Failed to run scan", details: error.message });
   }
 });
 
-// Get scan history
+// Remove the PyExploitDB installation endpoint
+// router.post("/tools/install/pyexploitdb", async (req, res) => { ... });
+
+// Routes for getting scan history
 router.get("/history", async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 10;
-    const scanHistory = await getScanHistory(req.dirs.scansDir, limit);
-
-    res.json(scanHistory);
+    const limit = req.query.limit ? parseInt(req.query.limit) : 10;
+    const history = await getScanHistory(req.dirs.scansDir, limit);
+    res.json(history);
   } catch (error) {
-    console.error("Error retrieving scan history:", error);
+    console.error("Error getting scan history");
     res.status(500).json({
-      error: "Failed to retrieve scan history",
+      error: "Failed to get scan history",
       details: error.message,
     });
   }
 });
 
-// Get scan results by ID
+// Get scan by ID
 router.get("/:scanId", async (req, res) => {
   try {
-    const scanResults = await getScanById(req.params.scanId, req.dirs.scansDir);
-    res.json(scanResults);
-  } catch (error) {
-    if (error.message.includes("not found")) {
-      res.status(404).json({ error: "Scan not found", details: error.message });
-    } else {
-      console.error(`Error retrieving scan ${req.params.scanId}:`, error);
-      res.status(500).json({
-        error: "Failed to retrieve scan results",
-        details: error.message,
-      });
+    const scanId = req.params.scanId;
+    const scan = await getScanById(scanId, req.dirs.scansDir);
+    if (!scan) {
+      return res.status(404).json({ error: "Scan not found" });
     }
+    res.json(scan);
+  } catch (error) {
+    console.error("Error getting scan by ID");
+    res.status(500).json({
+      error: "Failed to get scan",
+      details: error.message,
+    });
   }
 });
 

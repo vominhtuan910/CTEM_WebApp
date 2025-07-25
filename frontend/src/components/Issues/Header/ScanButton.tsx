@@ -21,12 +21,15 @@ const ScanButton: React.FC<ScanButtonProps> = ({ onScanComplete }) => {
       // Show toast notification
       toast.loading("Starting security scan...", { id: "scan-toast" });
 
-      // Use the real API to start a scan
+      // Use the real API to start a scan with auto OS detection
       const scanResult = await scanApi.startScan({
         target: "localhost",
-        runNmap: true,
-        runLynis: true,
-        runPowerShell: true,
+        autoDetectOS: true, // Enable automatic OS detection and tool selection
+        scanOptions: {
+          systemScan: true,
+          networkScan: true,
+          servicesScan: true,
+        },
       });
 
       // Get scan tools status

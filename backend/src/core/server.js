@@ -16,7 +16,6 @@ import prisma from "./database/prisma.js";
 import assetRoutes from "../routes/assetRoutes.js";
 import scanRoutes from "../routes/scanRoutes.js";
 import parserRoutes from "../routes/parserRoutes.js";
-import defectDojoRoutes from "../routes/defectDojoRoutes.js";
 import reportRoutes from "../routes/reportRoutes.js";
 
 // Load environment variables
@@ -66,7 +65,6 @@ app.use((req, res, next) => {
 app.use("/api/assets", assetRoutes);
 app.use("/api/scan", scanRoutes);
 app.use("/api/parser", parserRoutes);
-app.use("/api/defectdojo", defectDojoRoutes);
 app.use("/api/reports", reportRoutes);
 
 // Health check endpoint

@@ -9,7 +9,7 @@ if (process.env.NODE_ENV === "production") {
   // For development - prevent multiple instances in hot reload
   if (!global.prisma) {
     global.prisma = new PrismaClient({
-      log: ["query", "info", "warn", "error"],
+      log: ["warn", "error"], // Only log warnings and errors, remove query and info logs
     });
   }
   prisma = global.prisma;

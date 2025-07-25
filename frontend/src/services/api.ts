@@ -57,12 +57,14 @@ export const scanApi = {
     runNmap?: boolean;
     runLynis?: boolean;
     runPowerShell?: boolean;
+    autoDetectOS?: boolean;
     scanOptions?: ScanOptions;
   }) => {
     try {
       // Always use all scan options except packages
       const backendOptions = {
         ...options,
+        autoDetectOS: options.autoDetectOS !== false, // Default to true if not explicitly set
         scanOptions: {
           scanPackages: false, // Disabled by default
           scanServices: true, // Always enabled
