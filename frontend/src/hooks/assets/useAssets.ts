@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Asset, AssetFilter } from "../../types/asset.types";
 import { assetApi } from "../../services/api";
 import { toast } from "react-hot-toast";
+import { transformBackendAssetsResponse } from "../../utils/assetTransform";
 
 export const useAssets = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -21,17 +22,19 @@ export const useAssets = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await assetApi.getAll();
-      setAssets(data);
+      const response = await assetApi.getAll();
+      // Transform backend response to frontend format
+      const assetsData = transformBackendAssetsResponse(response);
+      setAssets(assetsData);
 
       // Extract unique OS types for filtering
       const osTypes = [
-        ...new Set(data.map((asset: Asset) => asset.os.name)),
+        ...new Set(assetsData.map((asset: Asset) => asset.os.name)),
       ].filter(Boolean) as string[];
       setAvailableOsTypes(osTypes);
 
       // Apply any existing filters
-      const filtered = filterAssets(data, filters);
+      const filtered = filterAssets(assetsData, filters);
       setFilteredAssets(filtered);
     } catch (err) {
       console.error("Error fetching assets:", err);

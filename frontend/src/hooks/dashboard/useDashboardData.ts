@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { DashboardData } from "../../types/dashboard.types";
-import { fetchDashboardData } from "../../data/mockDashboardData";
+import { dashboardApi } from "../../services/api";
 
 interface UseDashboardDataReturn {
   data: DashboardData | null;
@@ -18,7 +18,7 @@ export const useDashboardData = (): UseDashboardDataReturn => {
     try {
       setIsLoading(true);
       setError(null);
-      const dashboardData = await fetchDashboardData();
+      const dashboardData = await dashboardApi.getData();
       setData(dashboardData);
     } catch (err) {
       setError(

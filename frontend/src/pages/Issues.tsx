@@ -24,7 +24,13 @@ const Issues: React.FC = () => {
   >("success");
 
   // Use the hook to get vulnerability data
-  const { summary, refreshData, isRefreshing } = useVulnerabilityData();
+  const {
+    vulnerabilities,
+    filteredVulnerabilities,
+    summary,
+    refreshData,
+    isRefreshing,
+  } = useVulnerabilityData();
 
   const handleScanComplete = (success: boolean, data?: any) => {
     if (success && data) {
@@ -161,7 +167,7 @@ const Issues: React.FC = () => {
       <ExportDialog
         open={isExportOpen}
         onClose={handleExportClose}
-        vulnerabilities={summary ? Array(summary.total).fill({}) : []}
+        vulnerabilities={filteredVulnerabilities}
       />
 
       {/* Snackbar */}

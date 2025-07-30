@@ -1,5 +1,7 @@
 import axios from "axios";
 import { Asset } from "../types/asset.types";
+import { Vulnerability } from "../types/vulnerability.types";
+import { DashboardData } from "../types/dashboard.types";
 
 // Create an axios instance with default config
 const api = axios.create({
@@ -41,6 +43,59 @@ export const assetApi = {
 
   delete: async (id: string) => {
     const response = await api.delete(`/assets/${id}`);
+    return response.data;
+  },
+};
+
+// Vulnerability API endpoints
+export const vulnerabilityApi = {
+  getAll: async () => {
+    const response = await api.get("/vulnerabilities");
+    return response.data;
+  },
+
+  getById: async (id: string) => {
+    const response = await api.get(`/vulnerabilities/${id}`);
+    return response.data;
+  },
+
+  updateStatus: async (id: string, status: string) => {
+    const response = await api.patch(`/vulnerabilities/${id}/status`, {
+      status,
+    });
+    return response.data;
+  },
+
+  getSummary: async () => {
+    const response = await api.get("/vulnerabilities/summary");
+    return response.data;
+  },
+
+  getTrends: async (days: number = 7) => {
+    const response = await api.get(`/vulnerabilities/trends?days=${days}`);
+    return response.data;
+  },
+};
+
+// Dashboard API endpoints
+export const dashboardApi = {
+  getData: async () => {
+    const response = await api.get("/dashboard");
+    return response.data;
+  },
+
+  getHealthScore: async () => {
+    const response = await api.get("/dashboard/health-score");
+    return response.data;
+  },
+
+  getThreatsSummary: async () => {
+    const response = await api.get("/dashboard/threats");
+    return response.data;
+  },
+
+  getMetrics: async () => {
+    const response = await api.get("/dashboard/metrics");
     return response.data;
   },
 };

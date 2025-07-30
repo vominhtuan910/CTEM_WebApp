@@ -1,0 +1,43 @@
+model Asset {
+  id        Int      @id @default(autoincrement())
+  ip        String   @unique
+  hostname  String?
+  os        String?
+  createdAt DateTime @default(now())
+
+  nmapScans     NmapScan[]
+  openvasScans  OpenVasScan[]
+}
+
+model NmapScan {
+  id        Int      @id @default(autoincrement())
+  asset     Asset    @relation(fields: [assetId], references: [id])
+  assetId   Int
+  scanDate  DateTime @default(now())
+  ports     Json     // e.g. [{"port":22,"service":"ssh"}]
+  os        String?
+}
+
+model OpenVasScan {
+  id          Int      @id @default(autoincrement())
+  asset       Asset    @relation(fields: [assetId], references: [id])
+  assetId     Int
+  scanDate    DateTime @default(now())
+  reportXml   String   // raw XML string or path to file
+
+  findings    Finding[]
+}
+
+model Finding {
+  id                Int      @id @default(autoincrement())
+  openvasScan       OpenVasScan @relation(fields: [openvasScanId], references: [id])
+  openvasScanId     Int
+  cveId             String
+  title             String
+  severity          String
+  cvssScore         Float?
+  status            String  @default("NOT_VALIDATED") // 3 options: "NOT VALIDATED" as default, "VALIDATED" if searchsploit has result or "NOT CONFIRM" if no result.
+  exploitCommand    String?   // optional data from searchsploit or Metasploit
+
+}
+

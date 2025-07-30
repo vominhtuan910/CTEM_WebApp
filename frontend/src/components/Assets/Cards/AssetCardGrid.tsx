@@ -96,7 +96,7 @@ const AssetCardGrid: React.FC<AssetCardGridProps> = ({
     // For debugging
     console.log(`OS Name: ${asset.os.name}`);
 
-    // Direct match for exact OS names in our mockAssets data
+    // Direct match for exact OS names
     switch (osName) {
       case "windows":
         return <FaWindows size={iconSize} />;

@@ -120,7 +120,7 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({
     const version = asset.os.version?.toLowerCase() || "";
     const iconSize = 30;
 
-    // Direct match for exact OS names in our mockAssets data
+    // Direct match for exact OS names
     switch (osName) {
       case "windows":
         return <FaWindows size={iconSize} />;
