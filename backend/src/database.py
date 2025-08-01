@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
@@ -8,7 +8,7 @@ import logging
 load_dotenv()
 
 # Database URL from environment variable
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/ctem_project")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:12345678@localhost:5432/ctem_project")
 
 # Create SQLAlchemy engine with better error handling
 try:
@@ -21,7 +21,7 @@ try:
     
     # Test the connection
     with engine.connect() as conn:
-        conn.execute("SELECT 1")
+        conn.execute(text("SELECT 1"))
     
     print("✅ Database connection successful")
     DATABASE_AVAILABLE = True
@@ -67,7 +67,7 @@ def test_database_connection():
             return {"connected": False, "error": "Database not configured"}
             
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         return {"connected": True, "url": DATABASE_URL.replace(DATABASE_URL.split('@')[0].split('://')[-1], "***")}
     except Exception as e:
         return {"connected": False, "error": str(e)}
