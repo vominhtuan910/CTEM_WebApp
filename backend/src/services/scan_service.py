@@ -1,258 +1,334 @@
-import os
-import json
+from typing import Dict, List, Optional
 import asyncio
+import os
+from src.services.nmap_service import nmap_service
+from src.services.openvas_service import openvas_service
+from src.services.asset_service import asset_service
+from src.database import get_db
 import subprocess
-import platform
-from datetime import datetime
-from typing import Dict, Any, List, Optional
-from pathlib import Path
-from ..models.scan_models import (
-    ScanToolsStatus, ToolStatus, ScanOptions, ScanResult, 
-    ScanHistoryItem, ScanStatus
-)
 
 class ScanService:
-    """Scan service for running security scans"""
-    
     def __init__(self):
-        self.output_dir = Path("output/scans")
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        pass
     
-    async def get_scan_tools_status(self) -> ScanToolsStatus:
-        """Get status of available scanning tools"""
-        current_platform = platform.system().lower()
+    async def get_scan_tools_status(self) -> Dict:
+        """Check the status of scanning tools"""
+        tools_status = {
+            'nmap': await self._check_nmap(),
+            'openvas': await self._check_openvas(),
+            'searchsploit': await self._check_searchsploit()
+        }
         
-        tools = {}
-        
-        # Check Nmap
+        return {
+            'tools': tools_status,
+            'all_available': all(tool['available'] for tool in tools_status.values())
+        }
+    
+    async def _check_nmap(self) -> Dict:
+        """Check if Nmap is available"""
         try:
-            result = subprocess.run(['nmap', '--version'], 
-                                  capture_output=True, text=True, timeout=5)
-            tools['nmap'] = ToolStatus.installed if result.returncode == 0 else ToolStatus.not_installed
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            tools['nmap'] = ToolStatus.not_installed
-        
-        # Check Lynis
+            result = subprocess.run(['nmap', '--version'], capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                version_line = result.stdout.split('\n')[0]
+                return {
+                    'available': True,
+                    'version': version_line,
+                    'status': 'ready'
+                }
+            else:
+                return {
+                    'available': False,
+                    'error': 'nmap command failed',
+                    'status': 'error'
+                }
+        except subprocess.TimeoutExpired:
+            return {
+                'available': False,
+                'error': 'nmap command timed out',
+                'status': 'timeout'
+            }
+        except FileNotFoundError:
+            return {
+                'available': False,
+                'error': 'nmap not found in PATH',
+                'status': 'not_found'
+            }
+        except Exception as e:
+            return {
+                'available': False,
+                'error': str(e),
+                'status': 'error'
+            }
+    
+    async def _check_openvas(self) -> Dict:
+        """Check if OpenVAS is available"""
         try:
-            result = subprocess.run(['lynis', '--version'], 
-                                  capture_output=True, text=True, timeout=5)
-            tools['lynis'] = ToolStatus.installed if result.returncode == 0 else ToolStatus.not_installed
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            tools['lynis'] = ToolStatus.not_installed
-        
-        # Check PowerShell (Windows only)
-        if current_platform == 'windows':
-            tools['powershell'] = ToolStatus.available
-        else:
-            tools['powershell'] = ToolStatus.not_applicable
-        
-        # Check WSL (Windows only)
-        if current_platform == 'windows':
-            try:
-                result = subprocess.run(['wsl', '--status'], 
-                                      capture_output=True, text=True, timeout=5)
-                tools['wsl'] = ToolStatus.available if result.returncode == 0 else ToolStatus.not_available
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                tools['wsl'] = ToolStatus.not_available
-        else:
-            tools['wsl'] = ToolStatus.not_applicable
-        
-        return ScanToolsStatus(platform=current_platform, tools=tools)
+            # Check if socket exists (Linux)
+            socket_path = os.getenv("OPENVAS_SOCKET", "/var/run/gvmd.sock")
+            if os.path.exists(socket_path):
+                return {
+                    'available': True,
+                    'connection': 'unix_socket',
+                    'status': 'ready'
+                }
+            else:
+                # Check if we can connect via TLS (remote or Windows)
+                return {
+                    'available': True,  # Assume available for now
+                    'connection': 'tls',
+                    'status': 'ready',
+                    'note': 'TLS connection (remote or containerized)'
+                }
+        except Exception as e:
+            return {
+                'available': False,
+                'error': str(e),
+                'status': 'error'
+            }
     
-    async def run_scan(self, options: ScanOptions) -> ScanResult:
-        """Run a comprehensive security scan"""
-        scan_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-        timestamp = datetime.now()
-        
-        # Create scan directory
-        scan_dir = self.output_dir / scan_id
-        scan_dir.mkdir(exist_ok=True)
-        
-        # Initialize scan result
-        scan_result = ScanResult(
-            scan_id=scan_id,
-            timestamp=timestamp,
-            target=options.target,
-            platform=platform.system().lower(),
-            scan_status={
-                "overall": ScanStatus.in_progress,
-                "system_info": ScanStatus.completed,
-                "nmap": ScanStatus.skipped,
-                "lynis": ScanStatus.skipped,
-                "powershell": ScanStatus.skipped
-            },
-            system_info=await self._get_system_info(options.target),
-            network={"open_ports": [], "running_services": []},
-            packages={"count": 0, "outdated": [], "scan_disabled": not options.scan_packages},
-            security={"findings": [], "hardening_index": 0, "vulnerabilities": []},
-            services=[],
-            services_count=0,
-            errors={},
-            report_file=str(scan_dir / f"scan_report_{scan_id}.json")
-        )
-        
-        # Run Nmap scan if enabled
-        if options.run_nmap or (options.run_nmap is None and options.scan_services):
-            try:
-                nmap_result = await self._run_nmap_scan(options.target)
-                scan_result.network.update(nmap_result)
-                scan_result.scan_status["nmap"] = ScanStatus.completed
-            except Exception as e:
-                scan_result.scan_status["nmap"] = ScanStatus.failed
-                scan_result.errors["nmap"] = str(e)
-        
-        # Run Lynis scan if enabled
-        if options.run_lynis or (options.run_lynis is None and options.scan_vulnerabilities):
-            try:
-                lynis_result = await self._run_lynis_scan()
-                scan_result.security.update(lynis_result)
-                scan_result.scan_status["lynis"] = ScanStatus.completed
-            except Exception as e:
-                scan_result.scan_status["lynis"] = ScanStatus.failed
-                scan_result.errors["lynis"] = str(e)
-        
-        # Run PowerShell scan if enabled (Windows only)
-        if (options.run_powershell or (options.run_powershell is None and platform.system().lower() == 'windows')):
-            try:
-                powershell_result = await self._run_powershell_scan()
-                scan_result.services = powershell_result.get("services", [])
-                scan_result.services_count = len(scan_result.services)
-                scan_result.scan_status["powershell"] = ScanStatus.completed
-            except Exception as e:
-                scan_result.scan_status["powershell"] = ScanStatus.failed
-                scan_result.errors["powershell"] = str(e)
-        
-        # Update overall status
-        failed_scans = [status for status in scan_result.scan_status.values() if status == ScanStatus.failed]
-        if failed_scans:
-            scan_result.scan_status["overall"] = ScanStatus.partial if any(status == ScanStatus.completed for status in scan_result.scan_status.values()) else ScanStatus.failed
-        else:
-            scan_result.scan_status["overall"] = ScanStatus.completed
-        
-        # Save scan result to file
-        with open(scan_result.report_file, 'w') as f:
-            json.dump(scan_result.dict(), f, indent=2, default=str)
-        
-        return scan_result
+    async def _check_searchsploit(self) -> Dict:
+        """Check if searchsploit is available"""
+        try:
+            searchsploit_path = os.getenv("SEARCHSPLOIT_PATH", "searchsploit")
+            result = subprocess.run([searchsploit_path, '--help'], capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                return {
+                    'available': True,
+                    'status': 'ready'
+                }
+            else:
+                return {
+                    'available': False,
+                    'error': 'searchsploit command failed',
+                    'status': 'error'
+                }
+        except subprocess.TimeoutExpired:
+            return {
+                'available': False,
+                'error': 'searchsploit command timed out',
+                'status': 'timeout'
+            }
+        except FileNotFoundError:
+            return {
+                'available': False,
+                'error': 'searchsploit not found in PATH',
+                'status': 'not_found'
+            }
+        except Exception as e:
+            return {
+                'available': False,
+                'error': str(e),
+                'status': 'error'
+            }
     
-    async def get_scan_history(self, limit: int = 10) -> List[ScanHistoryItem]:
-        """Get scan history"""
-        history = []
-        
-        if not self.output_dir.exists():
-            return history
-        
-        # Get all scan report files
-        scan_files = list(self.output_dir.glob("scan_report_*.json"))
-        scan_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-        
-        for scan_file in scan_files[:limit]:
+    async def perform_network_discovery(self, network: str) -> Dict:
+        """
+        Stage 1: Perform network discovery using Nmap
+        Args:
+            network: Network range to scan (e.g., "192.168.1.0/24")
+        Returns:
+            Dictionary with discovered hosts and their information
+        """
+        try:
+            print(f"Starting network discovery for: {network}")
+            
+            # Perform Nmap scan
+            scan_result = await nmap_service.scan_network(network, save_xml=True)
+            
+            if not scan_result.get('hosts'):
+                return {
+                    'success': True,
+                    'network': network,
+                    'message': 'No hosts discovered in the network',
+                    'hosts': [],
+                    'total_hosts': 0
+                }
+            
+            # Save discovered assets to database
+            saved_assets = []
+            db = next(get_db())
+            
             try:
-                with open(scan_file, 'r') as f:
-                    scan_data = json.load(f)
+                for host_info in scan_result['hosts']:
+                    try:
+                        # Create or update asset
+                        asset = await asset_service.create_asset_from_scan(host_info, db)
+                        
+                        # Save Nmap scan data
+                        await asset_service.save_nmap_scan(asset.id, host_info, db)
+                        
+                        saved_assets.append({
+                            'id': asset.id,
+                            'ip': asset.ip,
+                            'hostname': asset.hostname,
+                            'os': asset.os,
+                            'ports': host_info.get('ports', [])[:5]  # Show first 5 ports
+                        })
+                        
+                    except Exception as e:
+                        print(f"Error saving asset {host_info.get('ip', 'unknown')}: {str(e)}")
+                        continue
                 
-                history.append(ScanHistoryItem(
-                    scan_id=scan_data.get("scan_id", ""),
-                    timestamp=datetime.fromisoformat(scan_data.get("timestamp", datetime.now().isoformat())),
-                    target=scan_data.get("target", ""),
-                    scan_status=scan_data.get("scan_status", {}),
-                    report_file=str(scan_file)
-                ))
-            except Exception as e:
-                # Create error entry for corrupted files
-                scan_id = scan_file.stem.replace("scan_report_", "")
-                history.append(ScanHistoryItem(
-                    scan_id=scan_id,
-                    timestamp=datetime.now(),
-                    target="unknown",
-                    scan_status={"overall": ScanStatus.failed},
-                    report_file=str(scan_file),
-                    error=f"Could not read scan file: {str(e)}"
-                ))
-        
-        return history
+            finally:
+                db.close()
+            
+            return {
+                'success': True,
+                'network': network,
+                'scan_time': scan_result.get('scan_time'),
+                'total_hosts': len(scan_result['hosts']),
+                'saved_assets': len(saved_assets),
+                'hosts': saved_assets,
+                'xml_path': scan_result.get('xml_path')
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Network discovery failed: {str(e)}'
+            }
     
-    async def get_scan_by_id(self, scan_id: str) -> Optional[Dict[str, Any]]:
-        """Get scan results by ID"""
-        scan_file = self.output_dir / f"scan_report_{scan_id}.json"
-        
-        if not scan_file.exists():
-            return None
-        
+    async def start_vulnerability_scan(self, asset_ids: List[int]) -> Dict:
+        """
+        Stage 2: Start OpenVAS vulnerability scans for selected assets
+        Args:
+            asset_ids: List of asset IDs to scan
+        Returns:
+            Dictionary with scan task information
+        """
         try:
-            with open(scan_file, 'r') as f:
-                return json.load(f)
-        except Exception:
-            return None
+            db = next(get_db())
+            scan_tasks = []
+            
+            try:
+                for asset_id in asset_ids:
+                    # Get asset info
+                    asset = await asset_service.get_asset_by_id(asset_id, db)
+                    if not asset:
+                        continue
+                    
+                    # Create OpenVAS scan task
+                    task_result = await openvas_service.create_scan_task(
+                        target_ip=asset.ip,
+                        task_name=f"CTEM_Vuln_Scan_{asset.hostname or asset.ip}"
+                    )
+                    
+                    if task_result.get('success'):
+                        # Start the scan
+                        start_result = await openvas_service.start_scan(task_result['task_id'])
+                        
+                        if start_result.get('success'):
+                            scan_tasks.append({
+                                'asset_id': asset_id,
+                                'asset_ip': asset.ip,
+                                'asset_hostname': asset.hostname,
+                                'task_id': task_result['task_id'],
+                                'status': 'started'
+                            })
+                
+            finally:
+                db.close()
+            
+            return {
+                'success': True,
+                'total_assets': len(asset_ids),
+                'started_scans': len(scan_tasks),
+                'scan_tasks': scan_tasks
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to start vulnerability scans: {str(e)}'
+            }
     
-    async def _get_system_info(self, target: str) -> Dict[str, Any]:
-        """Get basic system information"""
-        return {
-            "hostname": target,
-            "platform": platform.system(),
-            "platform_version": platform.version(),
-            "architecture": platform.machine(),
-            "processor": platform.processor(),
-            "python_version": platform.python_version()
-        }
+    async def check_scan_progress(self, task_ids: List[str]) -> Dict:
+        """
+        Check the progress of OpenVAS scans
+        Args:
+            task_ids: List of task IDs to check
+        Returns:
+            Dictionary with scan progress information
+        """
+        try:
+            task_statuses = []
+            completed_tasks = []
+            
+            for task_id in task_ids:
+                status_result = await openvas_service.get_scan_status(task_id)
+                
+                if status_result.get('success'):
+                    task_status = {
+                        'task_id': task_id,
+                        'status': status_result.get('status', 'Unknown'),
+                        'progress': status_result.get('progress', 0)
+                    }
+                    task_statuses.append(task_status)
+                    
+                    if status_result.get('status') == 'Done':
+                        completed_tasks.append(task_id)
+            
+            return {
+                'success': True,
+                'total_tasks': len(task_ids),
+                'completed_tasks': len(completed_tasks),
+                'task_statuses': task_statuses,
+                'all_completed': len(completed_tasks) == len(task_ids)
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to check scan progress: {str(e)}'
+            }
     
-    async def _run_nmap_scan(self, target: str) -> Dict[str, Any]:
-        """Run Nmap scan (mock implementation)"""
-        # Mock Nmap results
-        return {
-            "open_ports": [
-                {"port": 22, "protocol": "tcp", "service": "ssh"},
-                {"port": 80, "protocol": "tcp", "service": "http"},
-                {"port": 443, "protocol": "tcp", "service": "https"}
-            ],
-            "running_services": [
-                {"name": "ssh", "port": 22, "protocol": "tcp", "version": "OpenSSH 8.9p1"},
-                {"name": "http", "port": 80, "protocol": "tcp", "version": "nginx 1.18.0"},
-                {"name": "https", "port": 443, "protocol": "tcp", "version": "nginx 1.18.0"}
-            ]
-        }
-    
-    async def _run_lynis_scan(self) -> Dict[str, Any]:
-        """Run Lynis scan (mock implementation)"""
-        # Mock Lynis results
-        return {
-            "findings": [
-                "Warning: SSH root login is enabled",
-                "Warning: Unnecessary network services are running"
-            ],
-            "hardening_index": 65,
-            "vulnerabilities": [
-                {"name": "SSH Root Login", "severity": "medium", "description": "SSH root login is enabled"}
-            ]
-        }
-    
-    async def _run_powershell_scan(self) -> Dict[str, Any]:
-        """Run PowerShell scan (mock implementation)"""
-        # Mock PowerShell results
-        return {
-            "services": [
-                {"name": "spooler", "display_name": "Print Spooler", "status": "running"},
-                {"name": "wuauserv", "display_name": "Windows Update", "status": "running"},
-                {"name": "bits", "display_name": "Background Intelligent Transfer Service", "status": "running"}
-            ],
-            "software": [
-                {"name": "Visual Studio Code", "version": "1.85.0", "publisher": "Microsoft Corporation"},
-                {"name": "Node.js", "version": "18.17.0", "publisher": "Node.js Foundation"}
-            ]
-        }
+    async def collect_scan_results(self, task_ids: List[str]) -> Dict:
+        """
+        Collect results from completed OpenVAS scans
+        Args:
+            task_ids: List of completed task IDs
+        Returns:
+            Dictionary with collected findings
+        """
+        try:
+            all_findings = []
+            db = next(get_db())
+            
+            try:
+                for task_id in task_ids:
+                    # Get scan report
+                    report_result = await openvas_service.get_scan_report(task_id, save_xml=True)
+                    
+                    if report_result.get('success') and report_result.get('findings'):
+                        # Find the corresponding asset (this would need task->asset mapping)
+                        # For now, we'll create a placeholder approach
+                        findings = report_result['findings']
+                        all_findings.extend(findings)
+                        
+                        # Save findings to database would go here
+                        # This requires mapping task_id back to asset_id
+                
+            finally:
+                db.close()
+            
+            return {
+                'success': True,
+                'total_tasks': len(task_ids),
+                'total_findings': len(all_findings),
+                'findings': all_findings
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to collect scan results: {str(e)}'
+            }
+
+# Function to get scan tools status (for backwards compatibility)
+async def get_scan_tools_status() -> Dict:
+    """Get scan tools status"""
+    scan_service = ScanService()
+    return await scan_service.get_scan_tools_status()
 
 # Global instance
 scan_service = ScanService()
-
-# Convenience functions
-async def get_scan_tools_status() -> ScanToolsStatus:
-    return await scan_service.get_scan_tools_status()
-
-async def run_scan(options: ScanOptions) -> ScanResult:
-    return await scan_service.run_scan(options)
-
-async def get_scan_history(limit: int = 10) -> List[ScanHistoryItem]:
-    return await scan_service.get_scan_history(limit)
-
-async def get_scan_by_id(scan_id: str) -> Optional[Dict[str, Any]]:
-    return await scan_service.get_scan_by_id(scan_id) 

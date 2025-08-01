@@ -1,41 +1,37 @@
-#!/usr/bin/env python3
 """
-CTEM WebApp Backend - FastAPI Startup Script
+CTEM Backend Server Startup Script
+
+This script starts the CTEM backend server with proper configuration.
 """
 
 import uvicorn
 import os
-import sys
-from pathlib import Path
+from dotenv import load_dotenv
 
-def main():
-    """Start the FastAPI application"""
+# Load environment variables
+load_dotenv()
+
+if __name__ == "__main__":
+    # Configuration
+    host = os.getenv("API_HOST", "0.0.0.0")
+    port = int(os.getenv("API_PORT", "3001"))
     
-    # Add the current directory to Python path
-    current_dir = Path(__file__).parent
-    sys.path.insert(0, str(current_dir))
-    
-    # Set default configuration
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "3001"))
-    reload = os.getenv("RELOAD", "true").lower() == "true"
-    
-    print("🚀 Starting CTEM WebApp Backend (FastAPI)")
-    print(f"📍 Host: {host}")
+    print("=" * 60)
+    print("🚀 Starting CTEM Backend Server")
+    print("=" * 60)
+    print(f"📡 Host: {host}")
     print(f"🔌 Port: {port}")
-    print(f"🔄 Reload: {reload}")
-    print("📚 API Documentation: http://localhost:3001/docs")
-    print("🏥 Health Check: http://localhost:3001/api/health")
-    print("-" * 50)
+    print(f"📊 Environment: {'Development' if os.getenv('DEBUG', 'True') == 'True' else 'Production'}")
+    print(f"🔗 API Documentation: http://{host}:{port}/docs")
+    print(f"🔗 Health Check: http://{host}:{port}/api/health")
+    print("=" * 60)
     
     # Start the server
     uvicorn.run(
         "main:app",
         host=host,
         port=port,
-        reload=reload,
-        log_level="info"
+        reload=True,  # Enable auto-reload for development
+        log_level="info",
+        access_log=True
     )
-
-if __name__ == "__main__":
-    main() 

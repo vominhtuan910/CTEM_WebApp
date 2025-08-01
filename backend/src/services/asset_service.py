@@ -1,243 +1,245 @@
-import uuid
+from typing import List, Dict, Optional
+from sqlalchemy.orm import Session
+from src.database import get_db
+from src.models.asset_models import Asset
+from src.models.scan_models import NmapScan
+from src.models.vulnerability_models import OpenVasScan, Finding
 from datetime import datetime
-from typing import List, Optional, Dict, Any
-from ..models.asset_models import (
-    Asset, AssetCreate, AssetUpdate, AssetFilters, 
-    Service, Application, AssetStatus, AgentStatus
-)
+import json
 
 class AssetService:
-    """Asset service with mock data storage (database removed as requested)"""
-    
     def __init__(self):
-        # Mock data storage
-        self._assets: Dict[str, Asset] = {}
-        self._load_mock_data()
-    
-    def _load_mock_data(self):
-        """Load some mock assets for testing"""
-        mock_assets = [
-            {
-                "id": str(uuid.uuid4()),
-                "hostname": "server-01",
-                "name": "Production Server 1",
-                "ip_address": "192.168.1.100",
-                "ip_addresses": ["192.168.1.100", "10.0.0.100"],
-                "status": AssetStatus.active,
-                "health_score": 85.5,
-                "issues_count": 3,
-                "labels": ["production", "web-server"],
-                "agent_status": AgentStatus.installed,
-                "os_name": "Ubuntu",
-                "os_version": "22.04 LTS",
-                "os_architecture": "x86_64",
-                "os_platform": "linux",
-                "confidentiality": 3,
-                "integrity": 2,
-                "availability": 3,
-                "department": "IT",
-                "location": "Data Center A",
-                "owner": "System Admin",
-                "last_scan": datetime.now(),
-                "created_at": datetime.now(),
-                "updated_at": datetime.now(),
-                "services": [
-                    Service(
-                        id=str(uuid.uuid4()),
-                        name="nginx",
-                        display_name="Nginx Web Server",
-                        status="running",
-                        port=80,
-                        protocol="tcp",
-                        version="1.18.0",
-                        service_type="network_service"
-                    ),
-                    Service(
-                        id=str(uuid.uuid4()),
-                        name="ssh",
-                        display_name="OpenSSH Server",
-                        status="running",
-                        port=22,
-                        protocol="tcp",
-                        version="8.9p1",
-                        service_type="network_service"
-                    )
-                ],
-                "applications": [
-                    Application(
-                        id=str(uuid.uuid4()),
-                        name="Docker",
-                        version="24.0.5",
-                        publisher="Docker Inc.",
-                        install_date=datetime.now(),
-                        type="container_platform"
-                    )
-                ]
-            },
-            {
-                "id": str(uuid.uuid4()),
-                "hostname": "workstation-01",
-                "name": "Developer Workstation",
-                "ip_address": "192.168.1.101",
-                "ip_addresses": ["192.168.1.101"],
-                "status": AssetStatus.active,
-                "health_score": 92.0,
-                "issues_count": 1,
-                "labels": ["development", "workstation"],
-                "agent_status": AgentStatus.installed,
-                "os_name": "Windows 11",
-                "os_version": "22H2",
-                "os_architecture": "x64",
-                "os_platform": "win32",
-                "confidentiality": 2,
-                "integrity": 2,
-                "availability": 1,
-                "department": "Development",
-                "location": "Office Building B",
-                "owner": "John Developer",
-                "last_scan": datetime.now(),
-                "created_at": datetime.now(),
-                "updated_at": datetime.now(),
-                "services": [
-                    Service(
-                        id=str(uuid.uuid4()),
-                        name="Visual Studio Code",
-                        display_name="VS Code",
-                        status="running",
-                        service_type="application"
-                    )
-                ],
-                "applications": [
-                    Application(
-                        id=str(uuid.uuid4()),
-                        name="Visual Studio Code",
-                        version="1.85.0",
-                        publisher="Microsoft Corporation",
-                        install_date=datetime.now(),
-                        type="development_tool"
-                    ),
-                    Application(
-                        id=str(uuid.uuid4()),
-                        name="Node.js",
-                        version="18.17.0",
-                        publisher="Node.js Foundation",
-                        install_date=datetime.now(),
-                        type="runtime"
-                    )
-                ]
-            }
-        ]
+        pass
         
-        for asset_data in mock_assets:
-            asset = Asset(**asset_data)
-            self._assets[asset.id] = asset
-    
-    async def get_all_assets(self, filters: Optional[AssetFilters] = None) -> List[Asset]:
-        """Get all assets with optional filtering"""
-        assets = list(self._assets.values())
-        
-        if filters:
-            if filters.search:
-                search_term = filters.search.lower()
-                assets = [
-                    asset for asset in assets
-                    if (search_term in asset.hostname.lower() or
-                        search_term in asset.ip_address.lower() or
-                        (asset.name and search_term in asset.name.lower()))
-                ]
+    async def create_asset_from_scan(self, host_info: Dict, db: Session) -> Asset:
+        """
+        Create or update asset from Nmap scan results
+        Args:
+            host_info: Host information from Nmap scan
+            db: Database session
+        Returns:
+            Asset object
+        """
+        try:
+            # Check if asset already exists
+            existing_asset = db.query(Asset).filter(Asset.ip == host_info['ip']).first()
             
-            if filters.status:
-                assets = [asset for asset in assets if asset.status == filters.status]
-            
-            if filters.labels:
-                assets = [
-                    asset for asset in assets
-                    if any(label in asset.labels for label in filters.labels)
-                ]
-        
-        return assets
+            if existing_asset:
+                # Update existing asset
+                existing_asset.hostname = host_info.get('hostname', existing_asset.hostname)
+                if host_info.get('os'):
+                    existing_asset.os = host_info['os'].get('name', existing_asset.os)
+                db.commit()
+                db.refresh(existing_asset)
+                return existing_asset
+            else:
+                # Create new asset
+                new_asset = Asset(
+                    ip=host_info['ip'],
+                    hostname=host_info.get('hostname'),
+                    os=host_info.get('os', {}).get('name', 'Unknown'),
+                    created_at=datetime.utcnow()
+                )
+                db.add(new_asset)
+                db.commit()
+                db.refresh(new_asset)
+                return new_asset
+                
+        except Exception as e:
+            db.rollback()
+            raise Exception(f"Failed to create/update asset: {str(e)}")
     
-    async def get_asset_by_id(self, asset_id: str) -> Optional[Asset]:
+    async def save_nmap_scan(self, asset_id: int, scan_data: Dict, db: Session) -> NmapScan:
+        """
+        Save Nmap scan results to database
+        Args:
+            asset_id: Asset ID
+            scan_data: Scan data from Nmap
+            db: Database session
+        Returns:
+            NmapScan object
+        """
+        try:
+            nmap_scan = NmapScan(
+                asset_id=asset_id,
+                scan_date=datetime.utcnow(),
+                ports=scan_data.get('ports', []),
+                os=scan_data.get('os', {}).get('name')
+            )
+            
+            db.add(nmap_scan)
+            db.commit()
+            db.refresh(nmap_scan)
+            return nmap_scan
+            
+        except Exception as e:
+            db.rollback()
+            raise Exception(f"Failed to save Nmap scan: {str(e)}")
+    
+    async def save_openvas_scan(self, asset_id: int, scan_data: Dict, db: Session) -> OpenVasScan:
+        """
+        Save OpenVAS scan results to database
+        Args:
+            asset_id: Asset ID
+            scan_data: Scan data from OpenVAS
+            db: Database session
+        Returns:
+            OpenVasScan object
+        """
+        try:
+            openvas_scan = OpenVasScan(
+                asset_id=asset_id,
+                scan_date=datetime.utcnow(),
+                report_xml=scan_data.get('xml_content', '')
+            )
+            
+            db.add(openvas_scan)
+            db.commit()
+            db.refresh(openvas_scan)
+            
+            # Save findings if present
+            if 'findings' in scan_data:
+                for finding_data in scan_data['findings']:
+                    await self.save_finding(openvas_scan.id, finding_data, db)
+            
+            return openvas_scan
+            
+        except Exception as e:
+            db.rollback()
+            raise Exception(f"Failed to save OpenVAS scan: {str(e)}")
+    
+    async def save_finding(self, openvas_scan_id: int, finding_data: Dict, db: Session) -> Finding:
+        """
+        Save finding to database
+        Args:
+            openvas_scan_id: OpenVAS scan ID
+            finding_data: Finding data
+            db: Database session
+        Returns:
+            Finding object
+        """
+        try:
+            finding = Finding(
+                openvas_scan_id=openvas_scan_id,
+                cve_id=finding_data.get('cve_id', ''),
+                title=finding_data.get('title', ''),
+                severity=finding_data.get('severity', ''),
+                cvss_score=finding_data.get('cvss_score', 0.0),
+                status=finding_data.get('status', 'NOT_VALIDATED'),
+                exploit_command=finding_data.get('exploit_command')
+            )
+            
+            db.add(finding)
+            db.commit()
+            db.refresh(finding)
+            return finding
+            
+        except Exception as e:
+            db.rollback()
+            raise Exception(f"Failed to save finding: {str(e)}")
+    
+    async def get_all_assets(self, db: Session) -> List[Asset]:
+        """Get all assets from database"""
+        try:
+            return db.query(Asset).all()
+        except Exception as e:
+            raise Exception(f"Failed to get assets: {str(e)}")
+    
+    async def get_asset_by_id(self, asset_id: int, db: Session) -> Optional[Asset]:
         """Get asset by ID"""
-        return self._assets.get(asset_id)
+        try:
+            return db.query(Asset).filter(Asset.id == asset_id).first()
+        except Exception as e:
+            raise Exception(f"Failed to get asset: {str(e)}")
     
-    async def create_asset(self, asset_data: AssetCreate) -> Asset:
-        """Create a new asset"""
-        asset_id = str(uuid.uuid4())
-        now = datetime.now()
-        
-        asset = Asset(
-            id=asset_id,
-            **asset_data.dict(),
-            created_at=now,
-            updated_at=now
-        )
-        
-        self._assets[asset_id] = asset
-        return asset
+    async def get_asset_by_ip(self, ip: str, db: Session) -> Optional[Asset]:
+        """Get asset by IP address"""
+        try:
+            return db.query(Asset).filter(Asset.ip == ip).first()
+        except Exception as e:
+            raise Exception(f"Failed to get asset: {str(e)}")
     
-    async def update_asset(self, asset_id: str, asset_data: AssetUpdate) -> Optional[Asset]:
-        """Update an existing asset"""
-        if asset_id not in self._assets:
-            return None
-        
-        asset = self._assets[asset_id]
-        
-        # Update only provided fields
-        update_data = asset_data.dict(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(asset, field, value)
-        
-        asset.updated_at = datetime.now()
-        return asset
+    async def get_assets_with_vulnerabilities(self, db: Session) -> List[Dict]:
+        """Get assets with their vulnerability counts"""
+        try:
+            assets = db.query(Asset).all()
+            assets_with_vulns = []
+            
+            for asset in assets:
+                # Count total findings
+                total_findings = 0
+                high_severity_count = 0
+                critical_severity_count = 0
+                
+                for openvas_scan in asset.openvas_scans:
+                    scan_findings = len(openvas_scan.findings)
+                    total_findings += scan_findings
+                    
+                    for finding in openvas_scan.findings:
+                        if finding.severity == 'Critical':
+                            critical_severity_count += 1
+                        elif finding.severity == 'High':
+                            high_severity_count += 1
+                
+                asset_data = {
+                    'id': asset.id,
+                    'ip': asset.ip,
+                    'hostname': asset.hostname,
+                    'os': asset.os,
+                    'created_at': asset.created_at.isoformat() if asset.created_at else None,
+                    'total_findings': total_findings,
+                    'critical_findings': critical_severity_count,
+                    'high_findings': high_severity_count,
+                    'last_scan': None
+                }
+                
+                # Get last scan date
+                if asset.openvas_scans:
+                    last_scan = max(asset.openvas_scans, key=lambda x: x.scan_date)
+                    asset_data['last_scan'] = last_scan.scan_date.isoformat()
+                elif asset.nmap_scans:
+                    last_scan = max(asset.nmap_scans, key=lambda x: x.scan_date)
+                    asset_data['last_scan'] = last_scan.scan_date.isoformat()
+                
+                assets_with_vulns.append(asset_data)
+            
+            return assets_with_vulns
+            
+        except Exception as e:
+            raise Exception(f"Failed to get assets with vulnerabilities: {str(e)}")
     
-    async def delete_asset(self, asset_id: str) -> bool:
-        """Delete an asset"""
-        if asset_id in self._assets:
-            del self._assets[asset_id]
+    async def delete_asset(self, asset_id: int, db: Session) -> bool:
+        """Delete asset and all related data"""
+        try:
+            asset = db.query(Asset).filter(Asset.id == asset_id).first()
+            if not asset:
+                return False
+            
+            db.delete(asset)
+            db.commit()
             return True
-        return False
+            
+        except Exception as e:
+            db.rollback()
+            raise Exception(f"Failed to delete asset: {str(e)}")
     
-    async def update_asset_from_scan(self, asset_id: str, scan_data: Dict[str, Any]) -> Optional[Asset]:
-        """Update asset from scan results"""
-        if asset_id not in self._assets:
-            return None
-        
-        asset = self._assets[asset_id]
-        
-        # Update scan-related fields
-        asset.last_scan = datetime.now()
-        
-        if 'health_score' in scan_data:
-            asset.health_score = scan_data['health_score']
-        
-        if 'issues_count' in scan_data:
-            asset.issues_count = scan_data['issues_count']
-        
-        if 'os_name' in scan_data:
-            asset.os_name = scan_data['os_name']
-        
-        if 'os_version' in scan_data:
-            asset.os_version = scan_data['os_version']
-        
-        if 'os_architecture' in scan_data:
-            asset.os_architecture = scan_data['os_architecture']
-        
-        if 'labels' in scan_data:
-            # Merge labels
-            existing_labels = set(asset.labels)
-            new_labels = set(scan_data['labels'])
-            asset.labels = list(existing_labels.union(new_labels))
-        
-        if 'services' in scan_data:
-            asset.services = [
-                Service(**service_data) for service_data in scan_data['services']
-            ]
-        
-        if 'applications' in scan_data:
-            asset.applications = [
-                Application(**app_data) for app_data in scan_data['applications']
-            ]
-        
-        asset.updated_at = datetime.now()
-        return asset 
+    async def update_finding_status(self, finding_id: int, status: str, exploit_command: str = None, db: Session = None) -> bool:
+        """Update finding validation status"""
+        try:
+            finding = db.query(Finding).filter(Finding.id == finding_id).first()
+            if not finding:
+                return False
+            
+            finding.status = status
+            if exploit_command:
+                finding.exploit_command = exploit_command
+            
+            db.commit()
+            return True
+            
+        except Exception as e:
+            db.rollback()
+            raise Exception(f"Failed to update finding status: {str(e)}")
+
+# Global instance
+asset_service = AssetService()
