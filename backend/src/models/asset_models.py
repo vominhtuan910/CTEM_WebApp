@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from src.database import Base
 
 class Asset(Base):
@@ -10,7 +10,7 @@ class Asset(Base):
     ip = Column(String, unique=True, index=True)
     hostname = Column(String, nullable=True)
     os = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     # Relationships
     nmap_scans = relationship("NmapScan", back_populates="asset", cascade="all, delete-orphan")

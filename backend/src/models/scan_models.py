@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from src.database import Base
 
 class NmapScan(Base):
@@ -8,7 +8,7 @@ class NmapScan(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     asset_id = Column(Integer, ForeignKey("assets.id"))
-    scan_date = Column(DateTime, default=datetime.utcnow)
+    scan_date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     ports = Column(JSON)  # e.g. [{"port":22,"service":"ssh"}]
     os = Column(String, nullable=True)
     
