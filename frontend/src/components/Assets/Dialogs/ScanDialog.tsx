@@ -21,10 +21,8 @@ import {
 import {
   NetworkCheck as NetworkIcon,
   Dns as DnsIcon,
-  Security as SecurityIcon,
   Check as CheckIcon,
   Computer as ComputerIcon,
-  Apps as AppsIcon,
   Refresh as RefreshIcon,
   Warning as WarningIcon,
 } from "@mui/icons-material";
@@ -73,9 +71,10 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
   }, [open]);
 
   // Simple scanning message
-  const scanningMessage = "Scanning your system. This may take a minute...";
+  const scanningMessage =
+    "Running Nmap network discovery. This may take a few minutes...";
 
-  // Update the handleStartScan function to use the simplified options
+  // Update the handleStartScan function to use the Nmap network scan API
   const handleStartScan = async () => {
     setIsScanning(true);
     setScanResults(null);
@@ -83,130 +82,81 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
     setScanId(null);
 
     try {
-      // Get OS info to determine which scan to run
-      const userAgent = navigator.userAgent.toLowerCase();
-      const isWindows = userAgent.includes("win");
-      const isMac = userAgent.includes("mac");
-      const isLinux = userAgent.includes("linux");
-
-      // Always run all scan options
-      const scanResult = await scanApi.startScan({
-        target,
-        runNmap: true,
-        runLynis: isLinux || isMac,
-        runPowerShell: isWindows,
-        scanOptions: {
-          systemScan: true,
-          networkScan: true,
-          servicesScan: true,
-        },
-      });
-
-      // Store the scan ID for later use
-      const newScanId = scanResult?.scanId;
-      if (!newScanId) {
-        throw new Error("No scan ID returned from API");
+      // Convert target to network format for Nmap
+      let network = target;
+      if (target === "localhost") {
+        network = "127.0.0.1/32";
+      } else if (!target.includes("/")) {
+        // If it's a single IP without CIDR, add /32
+        network = `${target}/32`;
       }
 
+      // Use the new Nmap network scan API
+      const scanResult = await scanApi.scanNetwork(network);
+
+      // Check if the scan was successful
+      if (!scanResult.success) {
+        throw new Error(scanResult.error || "Nmap scan failed");
+      }
+
+      // Generate a scan ID for compatibility
+      const newScanId = `nmap_${Date.now()}`;
       setScanId(newScanId);
 
-      // Check if the scan was successful by looking at overall status
-      if (scanResult?.scanStatus?.overall === "failed") {
-        throw new Error(
-          `Scan failed: ${scanResult.errors?.overall || "Unknown error"}`
-        );
-      }
+      // Parse the scan results directly from the Nmap response
+      const parsedResults = await parserApi.parseScan(newScanId, scanResult);
 
-      try {
-        // Parse the scan results using the scanId we just received
-        const parsedResults = await parserApi.parseScan(newScanId);
+      setIsScanning(false);
+      setScanResults({
+        scanDate: new Date(),
+        scanId: newScanId,
+        parsedResults: parsedResults.parsedResults,
+        rawScanResult: scanResult,
+      });
 
-        setIsScanning(false);
-        setScanResults(parsedResults);
-
-        // Pass the results to the parent component
-        onScanComplete(true, {
-          scanDate: new Date(),
-          target,
-          scanId: newScanId,
-          results: parsedResults,
-        });
-      } catch (parseError) {
-        console.error("Error parsing scan results:", parseError);
-
-        setIsScanning(false);
-
-        // Store a partial result
-        const partialResult = {
-          scanDate: new Date(),
-          scanId: newScanId,
-          parsedResults: {
-            assetInfo: {
-              hostname: target,
-              ipAddress: target === "localhost" ? "127.0.0.1" : target,
-              status: "active",
-              osName: isWindows
-                ? "Windows"
-                : isMac
-                ? "macOS"
-                : isLinux
-                ? "Linux"
-                : "Unknown",
-              osVersion: "",
-            },
-          },
-        };
-
-        setScanResults(partialResult);
-
-        // Show error but don't stop the process
-        setError(
-          "Scan completed, but there was an issue processing the results. Some information may be incomplete."
-        );
-
-        // Still notify parent of partial success
-        onScanComplete(true, {
-          scanDate: new Date(),
-          target,
-          scanId: newScanId,
-          results: partialResult,
-          partial: true,
-        });
-      }
+      // Pass the results to the parent component
+      onScanComplete(true, {
+        scanDate: new Date(),
+        target,
+        scanId: newScanId,
+        results: parsedResults,
+        savedAsset: scanResult.saved_assets > 0, // Assets are auto-saved by Nmap scan
+      });
     } catch (error) {
-      console.error("Scan failed:", error);
+      console.error("Nmap scan failed:", error);
 
       setIsScanning(false);
 
       // Determine the specific error message
       let errorMessage =
-        "Scan failed. Please check if the backend server is running and try again.";
+        "Nmap scan failed. Please check if the backend server is running and Nmap is installed.";
 
       if (error instanceof Error) {
         if (
           error.message.includes("administrator") ||
-          error.message.includes("elevation")
+          error.message.includes("elevation") ||
+          error.message.includes("permission")
         ) {
           errorMessage =
-            "Scan failed because it requires administrator privileges. Please run the application as administrator.";
+            "Nmap scan failed due to insufficient privileges. Some scan features may require administrator/root access.";
         } else if (
           error.message.includes("ECONNREFUSED") ||
           error.message.includes("Network Error")
         ) {
           errorMessage =
             "Cannot connect to the backend server. Please make sure it's running.";
-        } else if (error.message.includes("scanId")) {
-          errorMessage =
-            "Scan was initiated but no valid scan ID was returned. Check the backend logs.";
         } else if (error.message.includes("timeout")) {
           errorMessage =
-            "Scan timed out. The target system might be unreachable or the scan takes too long.";
-        } else if (error.message.includes("not installed")) {
+            "Nmap scan timed out. The target system might be unreachable or the scan takes too long.";
+        } else if (
+          error.message.includes("not found") ||
+          error.message.includes("not installed")
+        ) {
           errorMessage =
-            "Required scan tools are not installed. Check the backend logs for details.";
+            "Nmap is not installed or not found in PATH. Please install Nmap and try again.";
         } else {
           // Use the actual error message for other cases
-          errorMessage = `Scan failed: ${error.message}`;
+          errorMessage = `Nmap scan failed: ${error.message}`;
         }
       }
 
@@ -222,13 +172,14 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
     }
 
     try {
-      const saveResult = await parserApi.saveScanResults(scanId);
+      // For Nmap scans, assets are automatically saved during the scan
+      // Just notify the parent component and close the dialog
       onScanComplete(true, {
         scanDate: new Date(),
         target,
         scanId,
         results: scanResults,
-        savedAsset: saveResult.asset,
+        savedAsset: true, // Assets are auto-saved by Nmap scan
       });
       onClose();
     } catch (err) {
@@ -331,33 +282,45 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
 
           <Grid size={{ xs: 12, md: 6 }}>
             <Typography variant="subtitle2" gutterBottom color="textSecondary">
-              Services Summary
+              Scan Summary
             </Typography>
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
               <Box
                 sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
               >
-                <Typography variant="body2">Running Services:</Typography>
+                <Typography variant="body2">Hosts Discovered:</Typography>
                 <Typography variant="body2" fontWeight="bold">
-                  {scanResults.parsedResults.services?.filter(
-                    (s: { status: string }) => s.status === "running"
-                  ).length || 0}
+                  {scanResults.rawScanResult?.total_hosts || 1}
                 </Typography>
               </Box>
               <Box
                 sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
               >
-                <Typography variant="body2">Total Services:</Typography>
+                <Typography variant="body2">Assets Saved:</Typography>
                 <Typography variant="body2" fontWeight="bold">
-                  {scanResults.parsedResults.services?.length || 0}
+                  {scanResults.rawScanResult?.saved_assets || 1}
                 </Typography>
               </Box>
               <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="body2">Applications:</Typography>
+                <Typography variant="body2">MAC Address:</Typography>
                 <Typography variant="body2" fontWeight="bold">
-                  {scanResults.parsedResults.applications?.length || 0}
+                  {asset.macAddress || "Not detected"}
                 </Typography>
               </Box>
+              {asset.manufacturer && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    mt: 1,
+                  }}
+                >
+                  <Typography variant="body2">Manufacturer:</Typography>
+                  <Typography variant="body2" fontWeight="bold">
+                    {asset.manufacturer}
+                  </Typography>
+                </Box>
+              )}
             </Paper>
           </Grid>
         </Grid>
@@ -382,9 +345,9 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
   return (
     <BaseDialog
       isOpen={open}
-      title="Asset Discovery Scan"
-      body="Scan your system to discover network configuration, services, and applications."
-      primaryLabel={isScanning ? "Scanning..." : "Start Scan"}
+      title="Nmap Network Discovery"
+      body="Use Nmap to discover hosts on your network and detect operating systems. Assets will be automatically saved to your inventory."
+      primaryLabel={isScanning ? "Scanning..." : "Start Nmap Scan"}
       secondaryLabel="Close"
       onPrimary={handleStartScan}
       onCancel={onClose}
@@ -397,9 +360,10 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
       <Box sx={{ mt: 2 }}>
         {/* Admin warning for Windows */}
         {isWindows && !isScanning && !scanResults && (
-          <Alert severity="warning" icon={<WarningIcon />} sx={{ mb: 2 }}>
-            Windows system scan requires administrator privileges. Some features
-            may not work if the application is not running as administrator.
+          <Alert severity="info" icon={<WarningIcon />} sx={{ mb: 2 }}>
+            Nmap may require administrator privileges for OS detection and some
+            advanced features. Running as administrator will provide more
+            detailed scan results.
           </Alert>
         )}
 
@@ -416,16 +380,17 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
               }}
             >
               <Typography variant="subtitle2" gutterBottom>
-                Scan Target
+                Network Target
               </Typography>
               <TextField
                 fullWidth
                 size="small"
-                label="Target IP or Hostname"
+                label="Target Network or IP"
                 value={target}
                 onChange={(e) => setTarget(e.target.value)}
                 margin="dense"
-                helperText="Enter IP address or hostname (default: localhost)"
+                helperText="Enter IP address, hostname, or network range (e.g., 192.168.1.0/24)"
+                placeholder="localhost"
               />
             </Paper>
           </>

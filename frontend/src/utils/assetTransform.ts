@@ -35,7 +35,7 @@ interface BackendAsset {
 // Transform backend asset data to frontend format
 export const transformBackendAsset = (backendAsset: BackendAsset): Asset => {
   return {
-    id: backendAsset.id,
+    id: String(backendAsset.id), // Convert to string for frontend compatibility
     hostname: backendAsset.hostname,
     name: backendAsset.name,
     ipAddress: backendAsset.ip_address,

@@ -1,11 +1,11 @@
 import axios from "axios";
 import { Asset } from "../types/asset.types";
-import { Vulnerability } from "../types/vulnerability.types";
-import { DashboardData } from "../types/dashboard.types";
 
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3001/api",
+  baseURL:
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.DEV ? "/api" : "http://localhost:3001/api"),
   headers: {
     "Content-Type": "application/json",
   },
@@ -107,6 +107,20 @@ export const scanApi = {
     return response.data;
   },
 
+  // Updated to use the Nmap network scan endpoint
+  scanNetwork: async (network: string) => {
+    try {
+      const response = await api.post(
+        `/scan/network?network=${encodeURIComponent(network)}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Nmap scan API error:", error);
+      throw error;
+    }
+  },
+
+  // Legacy method for backward compatibility - now uses network scan
   startScan: async (options: {
     target: string;
     runNmap?: boolean;
@@ -116,28 +130,34 @@ export const scanApi = {
     scanOptions?: ScanOptions;
   }) => {
     try {
-      // Always use all scan options except packages
-      const backendOptions = {
-        ...options,
-        autoDetectOS: options.autoDetectOS !== false, // Default to true if not explicitly set
-        scanOptions: {
-          scanPackages: false, // Disabled by default
-          scanServices: true, // Always enabled
-          scanVulnerabilities: true, // Always enabled
-          scanNetworkConfig: true, // Always enabled
-          quickScan: false,
-        },
-      };
-
-      const response = await api.post("/scan/start", backendOptions);
-
-      // Ensure we have a scanId in the response
-      if (!response.data || !response.data.scanId) {
-        console.error("No scanId returned from API:", response.data);
-        throw new Error("No scanId returned from scan API");
+      // Convert target to network format if it's a single IP
+      let network = options.target;
+      if (network === "localhost") {
+        network = "127.0.0.1/32";
+      } else if (!network.includes("/")) {
+        // If it's a single IP without CIDR, add /32
+        network = `${network}/32`;
       }
 
-      return response.data;
+      const response = await api.post(
+        `/scan/network?network=${encodeURIComponent(network)}`
+      );
+
+      // Transform response to match expected format
+      const result = response.data;
+      return {
+        success: result.success,
+        scanId: `nmap_${Date.now()}`, // Generate a scan ID for compatibility
+        network: result.network,
+        scanTime: result.scan_time,
+        totalHosts: result.total_hosts,
+        hosts: result.hosts,
+        xmlPath: result.xml_path,
+        scanStatus: {
+          overall: result.success ? "completed" : "failed",
+        },
+        errors: result.success ? null : { overall: result.error },
+      };
     } catch (error) {
       console.error("Scan API error:", error);
       throw error;
@@ -162,12 +182,46 @@ export const scanApi = {
 
 // Parser API endpoints
 export const parserApi = {
-  parseScan: async (scanId: string) => {
+  // For Nmap scans, parsing is done automatically by the scan service
+  // This method now transforms the scan results to the expected format
+  parseScan: async (scanId: string, scanResults?: any) => {
     try {
       if (!scanId) {
         throw new Error("No scan ID provided to parseScan");
       }
 
+      // If we have scan results from the Nmap scan, transform them
+      if (scanResults && scanResults.hosts && scanResults.hosts.length > 0) {
+        const firstHost = scanResults.hosts[0];
+
+        return {
+          success: true,
+          parsedResults: {
+            assetInfo: {
+              hostname:
+                firstHost.hostname ||
+                scanResults.network?.split("/")[0] ||
+                "localhost",
+              ipAddress:
+                firstHost.ip ||
+                scanResults.network?.split("/")[0] ||
+                "127.0.0.1",
+              status: "active",
+              osName: firstHost.os || "Unknown",
+              osVersion: "",
+              osBuildNumber: "",
+              osPlatform: firstHost.os || "Unknown",
+              osKernelVersion: "",
+              macAddress: firstHost.mac_address || "",
+              manufacturer: firstHost.manufacturer || "",
+            },
+            services: [], // Nmap service detection would populate this
+            applications: [], // Application detection would populate this
+          },
+        };
+      }
+
+      // Fallback to original parser API if no scan results provided
       const response = await api.post("/parser/parse", { scanId });
       return response.data;
     } catch (error) {
@@ -176,14 +230,24 @@ export const parserApi = {
     }
   },
 
+  // For Nmap scans, assets are automatically saved by the scan service
+  // This method is kept for compatibility
   saveScanResults: async (scanId: string, assetId?: string) => {
     try {
       if (!scanId) {
         throw new Error("No scan ID provided to saveScanResults");
       }
 
-      const response = await api.post("/parser/save", { scanId, assetId });
-      return response.data;
+      // For Nmap scans, the assets are already saved during the scan
+      // Return a success response
+      return {
+        success: true,
+        message: "Assets were automatically saved during the scan",
+        asset: {
+          id: assetId || scanId,
+          saved: true,
+        },
+      };
     } catch (error) {
       console.error("Save scan results error:", error);
       throw error;

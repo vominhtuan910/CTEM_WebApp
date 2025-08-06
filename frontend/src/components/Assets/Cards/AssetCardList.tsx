@@ -7,15 +7,10 @@ import {
   Tooltip,
   Box,
   alpha,
-  CardActionArea,
-  Chip,
 } from "@mui/material";
 import {
-  Edit as EditIcon,
   Delete as DeleteIcon,
   Circle as StatusIcon,
-  Settings as ServicesIcon,
-  Apps as AppsIcon,
 } from "@mui/icons-material";
 import {
   FaWindows,
@@ -55,24 +50,10 @@ type PaletteColor =
 
 interface AssetCardListProps {
   asset: Asset;
-  onView: (asset: Asset) => void;
-  onEdit: (asset: Asset) => void;
   onDelete: (asset: Asset) => void;
-  onExport: (asset: Asset) => void;
 }
 
-const AssetCardList: React.FC<AssetCardListProps> = ({
-  asset,
-  onView,
-  onEdit,
-  onDelete,
-  onExport,
-}) => {
-  const runningServices = asset.services.filter(
-    (s) => s.status === "running"
-  ).length;
-  const totalServices = asset.services.length;
-
+const AssetCardList: React.FC<AssetCardListProps> = ({ asset, onDelete }) => {
   const getStatusColor = (status: string): PaletteColor => {
     switch (status.toLowerCase()) {
       case "active":
@@ -88,7 +69,6 @@ const AssetCardList: React.FC<AssetCardListProps> = ({
 
   const getOsIcon = () => {
     const osName = asset.os.name.toLowerCase();
-    const version = asset.os.version?.toLowerCase() || "";
     const iconSize = 20;
 
     // Direct match for exact OS names
@@ -238,162 +218,121 @@ const AssetCardList: React.FC<AssetCardListProps> = ({
 
   const statusColor = getStatusColor(asset.status);
 
-  const handleCardClick = () => {
-    onView(asset);
-  };
-
   return (
     <Card sx={cardStyles.listCard}>
-      <CardActionArea onClick={handleCardClick} sx={{ height: "100%" }}>
-        <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            {/* Icon and Basic Info */}
+      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          {/* Icon and Basic Info */}
+          <Box
+            sx={{
+              p: 1,
+              borderRadius: 1,
+              backgroundColor: (theme) =>
+                alpha(theme.palette.primary.main, 0.1),
+              color: "primary.main",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 40,
+              height: 40,
+            }}
+          >
+            {getOsIcon()}
+          </Box>
+
+          {/* Hostname and IP */}
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 600,
+                color: "text.primary",
+              }}
+            >
+              {asset.hostname}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                fontFamily: "monospace",
+              }}
+            >
+              {asset.ipAddress}
+            </Typography>
+          </Box>
+
+          {/* OS Info */}
+          <Box sx={{ minWidth: 200 }}>
+            <Typography variant="body2" sx={{ color: "text.primary" }}>
+              {asset.os.name} {asset.os.version}
+            </Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              {asset.os.architecture}
+            </Typography>
+          </Box>
+
+          {/* Status */}
+          <Box sx={{ minWidth: 90 }}>
             <Box
               sx={{
-                p: 1,
-                borderRadius: 1,
-                backgroundColor: (theme) =>
-                  alpha(theme.palette.primary.main, 0.1),
-                color: "primary.main",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                width: 40,
-                height: 40,
-              }}
-            >
-              {getOsIcon()}
-            </Box>
-
-            {/* Hostname and IP */}
-            <Box sx={{ flexGrow: 1 }}>
-              <Typography
-                variant="subtitle1"
-                sx={{
-                  fontWeight: 600,
-                  color: "text.primary",
-                }}
-              >
-                {asset.hostname}
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: "text.secondary",
-                  fontFamily: "monospace",
-                }}
-              >
-                {asset.ipAddress}
-              </Typography>
-            </Box>
-
-            {/* OS Info */}
-            <Box sx={{ minWidth: 200 }}>
-              <Typography variant="body2" sx={{ color: "text.primary" }}>
-                {asset.os.name} {asset.os.version}
-              </Typography>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {asset.os.architecture}
-              </Typography>
-            </Box>
-
-            {/* Services & Apps Count */}
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <Tooltip
-                title={`${runningServices}/${totalServices} Services Running`}
-              >
-                <Chip
-                  icon={<ServicesIcon fontSize="small" />}
-                  label={`${runningServices}/${totalServices}`}
-                  size="small"
-                  sx={{ borderRadius: 1 }}
-                />
-              </Tooltip>
-              <Tooltip title={`${asset.applications.length} Applications`}>
-                <Chip
-                  icon={<AppsIcon fontSize="small" />}
-                  label={asset.applications.length}
-                  size="small"
-                  sx={{ borderRadius: 1 }}
-                />
-              </Tooltip>
-            </Box>
-
-            {/* Status */}
-            <Box sx={{ minWidth: 90 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  px: 1,
-                  py: 0.5,
-                  borderRadius: 1,
-                  maxWidth: "fit-content",
-                  bgcolor: (theme) =>
-                    alpha(theme.palette[statusColor].main, 0.1),
-                }}
-              >
-                <StatusIcon
-                  sx={{
-                    fontSize: 10,
-                    color: `${statusColor}.main`,
-                  }}
-                />
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: `${statusColor}.main`,
-                    fontWeight: 600,
-                    textTransform: "capitalize",
-                  }}
-                >
-                  {asset.status}
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* Action Buttons */}
-            <Box
-              className="asset-actions"
-              sx={{
-                display: "flex",
                 gap: 1,
-                opacity: 0,
-                transition: "opacity 0.2s ease-in-out",
-                zIndex: 2,
-                position: "relative",
+                px: 1,
+                py: 0.5,
+                borderRadius: 1,
+                maxWidth: "fit-content",
+                bgcolor: (theme) => alpha(theme.palette[statusColor].main, 0.1),
               }}
-              onClick={(e) => e.stopPropagation()}
             >
-              <Tooltip title="Edit">
-                <IconButton
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(asset);
-                  }}
-                  size="small"
-                  sx={actionButtonStyle("info")}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Delete">
-                <IconButton
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(asset);
-                  }}
-                  size="small"
-                  sx={actionButtonStyle("error")}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
+              <StatusIcon
+                sx={{
+                  fontSize: 10,
+                  color: `${statusColor}.main`,
+                }}
+              />
+              <Typography
+                variant="caption"
+                sx={{
+                  color: `${statusColor}.main`,
+                  fontWeight: 600,
+                  textTransform: "capitalize",
+                }}
+              >
+                {asset.status}
+              </Typography>
             </Box>
           </Box>
-        </CardContent>
-      </CardActionArea>
+
+          {/* Action Buttons */}
+          <Box
+            className="asset-actions"
+            sx={{
+              display: "flex",
+              gap: 1,
+              opacity: 0,
+              transition: "opacity 0.2s ease-in-out",
+              zIndex: 2,
+              position: "relative",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Tooltip title="Delete">
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(asset);
+                }}
+                size="small"
+                sx={actionButtonStyle("error")}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      </CardContent>
     </Card>
   );
 };

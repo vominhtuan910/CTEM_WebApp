@@ -5,10 +5,7 @@ import AssetCardList from "./AssetCardList";
 interface AssetCardProps {
   asset: Asset;
   viewMode: "grid" | "list";
-  onView: (asset: Asset) => void;
-  onEdit: (asset: Asset) => void;
   onDelete: (asset: Asset) => void;
-  onExport: (asset: Asset) => void;
 }
 
 const AssetCard: React.FC<AssetCardProps> = (props) => {
