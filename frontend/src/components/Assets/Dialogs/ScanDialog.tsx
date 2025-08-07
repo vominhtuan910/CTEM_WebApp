@@ -27,7 +27,7 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   // Scan options
-  const [target, setTarget] = useState<string>("localhost");
+  const [target, setTarget] = useState<string>("");
 
   // Check if Windows platform
   const isWindows = navigator.userAgent.toLowerCase().includes("win");
@@ -36,7 +36,7 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
   useEffect(() => {
     if (open) {
       setError(null);
-      setTarget("localhost");
+      setTarget("");
       setIsScanning(false);
     }
   }, [open]);
@@ -47,17 +47,24 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
 
   // Simplified handleStartScan function
   const handleStartScan = async () => {
+    // Validate that target is not empty
+    if (!target.trim()) {
+      setError("Please enter a target network or IP address");
+      return;
+    }
+
     setIsScanning(true);
     setError(null);
 
     try {
-      // Convert target to network format for Nmap
-      let network = target;
-      if (target === "localhost") {
-        network = "127.0.0.1/32";
-      } else if (!target.includes("/")) {
-        // If it's a single IP without CIDR, add /32
-        network = `${target}/32`;
+      // Validate network format (must include CIDR notation)
+      const network = target.trim();
+      if (!network.includes("/")) {
+        setError(
+          "Please enter a network IP address with CIDR notation (e.g., 192.168.1.0/24)"
+        );
+        setIsScanning(false);
+        return;
       }
 
       // Use the new Nmap network scan API
@@ -152,11 +159,12 @@ const ScanDialog: React.FC<ScanDialogProps> = ({
           <TextField
             fullWidth
             size="small"
-            label="Target Network or IP"
+            label="Target Network"
+            placeholder="192.168.1.0/24"
             value={target}
             onChange={(e) => setTarget(e.target.value)}
             margin="dense"
-            helperText="Enter network IP address with subnet mask (e.g., 192.168.1.0/24)"
+            helperText="Enter network IP address with CIDR notation (e.g., 192.168.1.0/24)"
             sx={{ mb: 2 }}
           />
         )}
