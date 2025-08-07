@@ -58,22 +58,45 @@ class ScanService:
     async def _check_openvas(self) -> Dict:
         """Check if OpenVAS is available"""
         try:
-            # Check if socket exists (Linux)
+            # Get OpenVAS configuration
+            host = os.getenv("OPENVAS_HOST", "localhost")
+            port = int(os.getenv("OPENVAS_PORT", "9390"))
             socket_path = os.getenv("OPENVAS_SOCKET", "/var/run/gvmd.sock")
-            if os.path.exists(socket_path):
+
+            # Try to test actual connection to OpenVAS
+            try:
+                from src.services.openvas_service import openvas_service
+
+                # Test connection by trying to connect
+                gmp = openvas_service._connect_gmp()
+                version = gmp.get_version()
+
+                connection_type = "tls" if host != "localhost" else "unix_socket"
                 return {
                     "available": True,
-                    "connection": "unix_socket",
+                    "connection": connection_type,
                     "status": "ready",
+                    "host": host,
+                    "port": port,
+                    "version": str(version) if version else "unknown",
                 }
-            else:
-                # Check if we can connect via TLS (remote or Windows)
+
+            except Exception as conn_error:
+                # If connection fails, still report configuration
+                connection_type = (
+                    "tls"
+                    if host != "localhost" or not os.path.exists(socket_path)
+                    else "unix_socket"
+                )
                 return {
-                    "available": True,  # Assume available for now
-                    "connection": "tls",
-                    "status": "ready",
-                    "note": "TLS connection (remote or containerized)",
+                    "available": False,
+                    "connection": connection_type,
+                    "status": "connection_failed",
+                    "host": host,
+                    "port": port,
+                    "error": str(conn_error),
                 }
+
         except Exception as e:
             return {"available": False, "error": str(e), "status": "error"}
 

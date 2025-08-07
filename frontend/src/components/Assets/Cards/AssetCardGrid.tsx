@@ -1,4 +1,6 @@
+import React, { useState } from "react";
 import { Asset } from "../../../types/asset.types";
+import { scanApi } from "../../../services/api";
 import {
   Card,
   CardContent,
@@ -8,10 +10,13 @@ import {
   Box,
   Divider,
   alpha,
+  Button,
+  CardActions,
 } from "@mui/material";
 import {
   Delete as DeleteIcon,
   Circle as StatusIcon,
+  Security as SecurityIcon,
 } from "@mui/icons-material";
 import {
   FaWindows,
@@ -55,6 +60,26 @@ interface AssetCardGridProps {
 }
 
 const AssetCardGrid: React.FC<AssetCardGridProps> = ({ asset, onDelete }) => {
+  const [isScanning, setIsScanning] = useState(false);
+
+  const handleScanVulnerabilities = async () => {
+    try {
+      setIsScanning(true);
+      const result = await scanApi.scanVulnerabilities(asset.id);
+
+      if (result.success) {
+        // You could add a toast notification here
+        console.log("Vulnerability scan started successfully:", result);
+      } else {
+        console.error("Failed to start vulnerability scan:", result);
+      }
+    } catch (error) {
+      console.error("Error starting vulnerability scan:", error);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   const getStatusColor = (status: string): PaletteColor => {
     switch (status.toLowerCase()) {
       case "active":
@@ -307,6 +332,25 @@ const AssetCardGrid: React.FC<AssetCardGridProps> = ({ asset, onDelete }) => {
           </Typography>
         </Box>
       </CardContent>
+
+      {/* Scan Vulnerabilities Button */}
+      <CardActions sx={{ p: 2, pt: 0 }}>
+        <Button
+          variant="contained"
+          color="primary"
+          size="small"
+          fullWidth
+          startIcon={<SecurityIcon />}
+          onClick={handleScanVulnerabilities}
+          disabled={isScanning}
+          sx={{
+            textTransform: "none",
+            fontWeight: 600,
+          }}
+        >
+          {isScanning ? "Scanning..." : "Scan Vulnerabilities"}
+        </Button>
+      </CardActions>
 
       {/* Action Buttons */}
       <Box

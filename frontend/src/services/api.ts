@@ -183,6 +183,14 @@ export const scanApi = {
     const response = await api.post(`/scan/assets/${assetId}`);
     return response.data;
   },
+
+  // OpenVAS vulnerability scan for a single asset
+  scanVulnerabilities: async (assetId: string) => {
+    const response = await api.post("/assets/vulnerability-scan", [
+      parseInt(assetId),
+    ]);
+    return response.data;
+  },
 };
 
 // Parser API endpoints

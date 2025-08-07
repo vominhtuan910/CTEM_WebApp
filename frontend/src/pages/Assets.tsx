@@ -19,7 +19,6 @@ import {
   DeleteSweep as DeleteSweepIcon,
 } from "@mui/icons-material";
 import AssetCard from "../components/Assets/Cards/AssetCard";
-import AssetFormDialog from "../components/Assets/Dialogs/AssetFormDialog";
 import DeleteConfirmationDialog from "../components/Assets/Dialogs/DeleteConfirmationDialog";
 import ClearAllConfirmationDialog from "../components/Assets/Dialogs/ClearAllConfirmationDialog";
 
@@ -312,7 +311,7 @@ const Assets = () => {
             variant="outlined"
             onClick={() => setDialogState({ ...dialogState, scan: true })}
           >
-            Nmap Scan
+            Network Scan
           </Button>
         </Box>
       ) : (
@@ -328,17 +327,6 @@ const Assets = () => {
           ))}
         </Grid>
       )}
-
-      {/* Dialogs */}
-      <AssetFormDialog
-        open={dialogState.add}
-        type="add"
-        onClose={closeDialog}
-        onSubmit={handleAddAsset}
-        isSubmitting={isSubmitting}
-        importFile={importFile}
-        onImportFile={handleImportFile}
-      />
 
       {selectedAsset && (
         <>
