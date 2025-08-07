@@ -70,9 +70,3 @@ export interface AssetFormState {
     availability: number;
   };
 }
-
-export interface AssetFilter {
-  search: string;
-  status: AssetStatus[];
-  osType: string[];
-}

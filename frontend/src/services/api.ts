@@ -45,6 +45,11 @@ export const assetApi = {
     const response = await api.delete(`/assets/${id}`);
     return response.data;
   },
+
+  clearAll: async () => {
+    const response = await api.delete("/assets/clear-all");
+    return response.data;
+  },
 };
 
 // Vulnerability API endpoints

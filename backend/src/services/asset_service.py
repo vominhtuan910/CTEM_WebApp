@@ -345,6 +345,33 @@ class AssetService:
             db.rollback()
             raise Exception(f"Failed to delete asset: {str(e)}")
 
+    async def clear_all_assets(self, db: Session) -> Dict:
+        """Delete all assets and related data"""
+        try:
+            # Get count of assets before deletion
+            asset_count = db.query(Asset).count()
+
+            if asset_count == 0:
+                return {
+                    "success": True,
+                    "message": "No assets to delete",
+                    "deleted_count": 0,
+                }
+
+            # Delete all assets (cascade will handle related data)
+            deleted_count = db.query(Asset).delete()
+            db.commit()
+
+            return {
+                "success": True,
+                "message": f"Successfully deleted {deleted_count} assets and all related data",
+                "deleted_count": deleted_count,
+            }
+
+        except Exception as e:
+            db.rollback()
+            raise Exception(f"Failed to clear all assets: {str(e)}")
+
     async def update_finding_status(
         self,
         finding_id: int,

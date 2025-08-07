@@ -16,13 +16,14 @@ import {
   Add as AddIcon,
   ViewList as ViewListIcon,
   ViewModule as ViewModuleIcon,
+  DeleteSweep as DeleteSweepIcon,
 } from "@mui/icons-material";
 import AssetCard from "../components/Assets/Cards/AssetCard";
 import AssetFormDialog from "../components/Assets/Dialogs/AssetFormDialog";
 import DeleteConfirmationDialog from "../components/Assets/Dialogs/DeleteConfirmationDialog";
+import ClearAllConfirmationDialog from "../components/Assets/Dialogs/ClearAllConfirmationDialog";
 
 import ScanDialog from "../components/Assets/Dialogs/ScanDialog";
-import AssetFilters from "../components/Assets/Filters/AssetFilters";
 import { Asset } from "../types/asset.types";
 import { useAssets } from "../hooks/assets/useAssets";
 
@@ -36,24 +37,22 @@ const Assets = () => {
     add: boolean;
     delete: boolean;
     scan: boolean;
+    clearAll: boolean;
   }>({
     add: false,
     delete: false,
     scan: false,
+    clearAll: false,
   });
   const [importFile, setImportFile] = useState<File | null>(null);
 
   // Use our custom hooks
   const {
     assets,
-    filteredAssets,
     isLoading,
-    filters,
-    updateFilters,
-    availableOsTypes,
     addAsset,
-    updateAsset,
     deleteAsset,
+    clearAllAssets,
     isSubmitting,
     refreshAssets,
   } = useAssets();
@@ -61,7 +60,27 @@ const Assets = () => {
   // Handle scan completion
   const handleScanComplete = async (success: boolean, data?: any) => {
     if (success && data) {
-      toast.success("Nmap scan completed successfully");
+      // Create detailed success message
+      const hostsFound = data.hostsFound || 0;
+      const assetsAdded = data.assetsAdded || 0;
+
+      let message = "Nmap scan completed successfully!";
+      if (hostsFound > 0) {
+        message += ` Found ${hostsFound} host${hostsFound > 1 ? "s" : ""}`;
+        if (assetsAdded > 0) {
+          message += `, added ${assetsAdded} new asset${
+            assetsAdded > 1 ? "s" : ""
+          } to inventory.`;
+        } else {
+          message += ` (no new assets added).`;
+        }
+      } else {
+        message += " No hosts discovered on the target network.";
+      }
+
+      toast.success(message, {
+        duration: 5000, // Show for 5 seconds
+      });
 
       // Assets are automatically saved by the Nmap scan service
       // Always refresh the asset list after a successful scan
@@ -109,10 +128,9 @@ const Assets = () => {
   const closeDialog = () => {
     setDialogState({
       add: false,
-      edit: false,
       delete: false,
-      details: false,
       scan: false,
+      clearAll: false,
     });
     setSelectedAsset(null);
     setImportFile(null);
@@ -207,9 +225,21 @@ const Assets = () => {
             variant="outlined"
             color="secondary"
             onClick={() => setDialogState({ ...dialogState, scan: true })}
+            sx={{ mr: 1 }}
           >
             Scan
           </Button>
+          {assets.length > 0 && (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteSweepIcon />}
+              onClick={() => setDialogState({ ...dialogState, clearAll: true })}
+              disabled={isSubmitting}
+            >
+              Clear All
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -225,11 +255,6 @@ const Assets = () => {
           mb: 3,
         }}
       >
-        <AssetFilters
-          filters={filters}
-          onFilterChange={updateFilters}
-          availableOsTypes={availableOsTypes}
-        />
         <Box>
           <Tooltip title="Grid View">
             <IconButton
@@ -255,7 +280,7 @@ const Assets = () => {
       {/* Asset Grid/List */}
       {isLoading ? (
         <Typography>Loading assets...</Typography>
-      ) : filteredAssets.length === 0 ? (
+      ) : assets.length === 0 ? (
         <Box
           sx={{
             textAlign: "center",
@@ -292,7 +317,7 @@ const Assets = () => {
         </Box>
       ) : (
         <Grid container spacing={2}>
-          {filteredAssets.map((asset) => (
+          {assets.map((asset) => (
             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={asset.id}>
               <AssetCard
                 asset={asset}
@@ -331,6 +356,14 @@ const Assets = () => {
         open={dialogState.scan}
         onClose={closeDialog}
         onScanComplete={handleScanComplete}
+      />
+
+      <ClearAllConfirmationDialog
+        open={dialogState.clearAll}
+        onClose={closeDialog}
+        onConfirm={clearAllAssets}
+        assetCount={assets.length}
+        isSubmitting={isSubmitting}
       />
     </Box>
   );

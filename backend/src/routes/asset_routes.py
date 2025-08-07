@@ -262,6 +262,16 @@ async def check_scan_progress(task_ids: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.delete("/clear-all")
+async def clear_all_assets(db: Session = Depends(get_db)):
+    """Delete all assets and related data"""
+    try:
+        result = await asset_service.clear_all_assets(db)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/{asset_id}")
 async def delete_asset(asset_id: str, db: Session = Depends(get_db)):
     """Delete an asset and all related data"""

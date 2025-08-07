@@ -1,20 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { Asset, AssetFilter } from "../../types/asset.types";
+import { Asset } from "../../types/asset.types";
 import { assetApi } from "../../services/api";
 import { toast } from "react-hot-toast";
 import { transformBackendAssetsResponse } from "../../utils/assetTransform";
 
 export const useAssets = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [filteredAssets, setFilteredAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
-  const [filters, setFilters] = useState<AssetFilter>({
-    search: "",
-    status: ["active", "inactive"],
-    osType: [],
-  });
-  const [availableOsTypes, setAvailableOsTypes] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Fetch assets from the API
@@ -26,16 +19,6 @@ export const useAssets = () => {
       // Transform backend response to frontend format
       const assetsData = transformBackendAssetsResponse(response);
       setAssets(assetsData);
-
-      // Extract unique OS types for filtering
-      const osTypes = [
-        ...new Set(assetsData.map((asset: Asset) => asset.os.name)),
-      ].filter(Boolean) as string[];
-      setAvailableOsTypes(osTypes);
-
-      // Apply any existing filters
-      const filtered = filterAssets(assetsData, filters);
-      setFilteredAssets(filtered);
     } catch (err) {
       console.error("Error fetching assets:", err);
       setError(err as Error);
@@ -43,7 +26,7 @@ export const useAssets = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   // Add a new asset
   const addAsset = async (assetData: Partial<Asset>): Promise<boolean> => {
@@ -99,41 +82,41 @@ export const useAssets = () => {
     }
   };
 
-  // Filter assets based on search, status, and OS type
-  const filterAssets = (assets: Asset[], filters: AssetFilter): Asset[] => {
-    return assets.filter((asset) => {
-      // Filter by search term
-      const searchMatch =
-        !filters.search ||
-        asset.hostname.toLowerCase().includes(filters.search.toLowerCase()) ||
-        asset.ipAddress.toLowerCase().includes(filters.search.toLowerCase()) ||
-        (asset.name &&
-          asset.name.toLowerCase().includes(filters.search.toLowerCase()));
+  // Clear all assets
+  const clearAllAssets = async (): Promise<boolean> => {
+    setIsSubmitting(true);
+    try {
+      const response = await assetApi.clearAll();
 
-      // Filter by status
-      const statusMatch =
-        filters.status.length === 0 || filters.status.includes(asset.status);
+      if (response.success) {
+        // Clear the local state
+        setAssets([]);
 
-      // Filter by OS type
-      const osTypeMatch =
-        filters.osType.length === 0 || filters.osType.includes(asset.os.name);
+        // Show success message with count
+        const deletedCount = response.deleted_count || 0;
+        if (deletedCount > 0) {
+          toast.success(
+            `Successfully deleted ${deletedCount} asset${
+              deletedCount > 1 ? "s" : ""
+            }`
+          );
+        } else {
+          toast.success("No assets to delete");
+        }
 
-      return searchMatch && statusMatch && osTypeMatch;
-    });
+        return true;
+      } else {
+        toast.error(response.message || "Failed to clear assets");
+        return false;
+      }
+    } catch (err) {
+      console.error("Error clearing all assets:", err);
+      toast.error("Failed to clear all assets");
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-
-  // Update filters and re-filter assets
-  const updateFilters = useCallback(
-    (newFilters: Partial<AssetFilter>) => {
-      setFilters((prev) => {
-        const updated = { ...prev, ...newFilters };
-        const filtered = filterAssets(assets, updated);
-        setFilteredAssets(filtered);
-        return updated;
-      });
-    },
-    [assets]
-  );
 
   // Initial fetch
   useEffect(() => {
@@ -142,15 +125,12 @@ export const useAssets = () => {
 
   return {
     assets,
-    filteredAssets,
     isLoading,
     error,
-    filters,
-    updateFilters,
-    availableOsTypes,
     addAsset,
     updateAsset,
     deleteAsset,
+    clearAllAssets,
     isSubmitting,
     refreshAssets: fetchAssets,
   };
