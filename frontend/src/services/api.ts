@@ -59,6 +59,25 @@ export const vulnerabilityApi = {
     return response.data;
   },
 
+  // New method to get OpenVAS threats from parsed XML reports
+  getOpenVASThreats: async (params?: {
+    sort_by?: string;
+    sort_order?: string;
+    severity_filter?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
+    if (params?.sort_order) queryParams.append('sort_order', params.sort_order);
+    if (params?.severity_filter) queryParams.append('severity_filter', params.severity_filter);
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+    
+    const response = await api.get(`/vulnerabilities/openvas-threats?${queryParams.toString()}`);
+    return response.data;
+  },
+
   getById: async (id: string) => {
     const response = await api.get(`/vulnerabilities/${id}`);
     return response.data;

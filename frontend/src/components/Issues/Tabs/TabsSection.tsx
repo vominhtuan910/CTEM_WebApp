@@ -19,7 +19,6 @@ import {
   AssessmentOutlined,
 } from "@mui/icons-material";
 import VulnerabilityTable from "../Vulnerability/VulnerabilityTable";
-import ScanButton from "../Header/ScanButton";
 import RiskAssessmentPanel from "../Summary/RiskAssessmentPanel";
 
 interface TabPanelProps {
@@ -140,22 +139,7 @@ const TabsSection: React.FC<TabsSectionProps> = ({ onScanComplete }) => {
         }}
       >
         <TabPanel value={tabValue} index={0}>
-          <Box
-            sx={{
-              mb: 3,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 2,
-            }}
-          >
-            <ScanButton onScanComplete={onScanComplete} />
-            <Typography variant="body2" color="text.secondary">
-              Pro Tip: Press "S" key to quickly start a new scan
-            </Typography>
-          </Box>
-          <VulnerabilityTable fetchFromApi={false} />
+          <VulnerabilityTable fetchFromApi={true} />
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
