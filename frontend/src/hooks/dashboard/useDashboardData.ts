@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { DashboardData } from "../../types/dashboard.types";
+import { DashboardData, DashboardMetrics } from "../../types/dashboard.types";
 import { dashboardApi } from "../../services/api";
 
 interface UseDashboardDataReturn {
   data: DashboardData | null;
+  metrics: DashboardMetrics | null;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -11,6 +12,7 @@ interface UseDashboardDataReturn {
 
 export const useDashboardData = (): UseDashboardDataReturn => {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,13 +20,21 @@ export const useDashboardData = (): UseDashboardDataReturn => {
     try {
       setIsLoading(true);
       setError(null);
-      const dashboardData = await dashboardApi.getData();
+
+      // Fetch dashboard data in parallel
+      const [dashboardData, metricsData] = await Promise.all([
+        dashboardApi.getData(),
+        dashboardApi.getMetrics(),
+      ]);
+
       setData(dashboardData);
+      setMetrics(metricsData);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred"
       );
       setData(null);
+      setMetrics(null);
     } finally {
       setIsLoading(false);
     }
@@ -32,6 +42,11 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 
   useEffect(() => {
     fetchData();
+
+    // Set up auto-refresh every 5 minutes
+    const interval = setInterval(fetchData, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const refetch = () => {
@@ -40,6 +55,7 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 
   return {
     data,
+    metrics,
     isLoading,
     error,
     refetch,

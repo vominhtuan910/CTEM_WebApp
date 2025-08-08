@@ -68,13 +68,16 @@ export const vulnerabilityApi = {
     offset?: number;
   }) => {
     const queryParams = new URLSearchParams();
-    if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
-    if (params?.sort_order) queryParams.append('sort_order', params.sort_order);
-    if (params?.severity_filter) queryParams.append('severity_filter', params.severity_filter);
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-    if (params?.offset) queryParams.append('offset', params.offset.toString());
-    
-    const response = await api.get(`/vulnerabilities/openvas-threats?${queryParams.toString()}`);
+    if (params?.sort_by) queryParams.append("sort_by", params.sort_by);
+    if (params?.sort_order) queryParams.append("sort_order", params.sort_order);
+    if (params?.severity_filter)
+      queryParams.append("severity_filter", params.severity_filter);
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.offset) queryParams.append("offset", params.offset.toString());
+
+    const response = await api.get(
+      `/vulnerabilities/openvas-threats?${queryParams.toString()}`
+    );
     return response.data;
   },
 
@@ -105,22 +108,31 @@ export const vulnerabilityApi = {
 export const dashboardApi = {
   getData: async () => {
     const response = await api.get("/dashboard");
-    return response.data;
-  },
-
-  getHealthScore: async () => {
-    const response = await api.get("/dashboard/health-score");
-    return response.data;
-  },
-
-  getThreatsSummary: async () => {
-    const response = await api.get("/dashboard/threats");
-    return response.data;
+    return response.data.data; // Extract data from success wrapper
   },
 
   getMetrics: async () => {
     const response = await api.get("/dashboard/metrics");
-    return response.data;
+    return response.data.data; // Extract data from success wrapper
+  },
+
+  getAlerts: async () => {
+    const response = await api.get("/dashboard/alerts");
+    return response.data.data; // Extract data from success wrapper
+  },
+
+  // Legacy endpoints for backward compatibility
+  getHealthScore: async () => {
+    const response = await api.get("/dashboard");
+    return response.data.data.health_score;
+  },
+
+  getThreatsSummary: async () => {
+    const response = await api.get("/dashboard");
+    return {
+      top_cves: response.data.data.top_cves,
+      vulnerable_assets: response.data.data.vulnerable_assets,
+    };
   },
 };
 
