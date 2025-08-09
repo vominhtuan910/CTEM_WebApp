@@ -155,9 +155,20 @@ class AssetService:
             Finding object
         """
         try:
+            # Handle CVE references - can be array or single string
+            cve_data = finding_data.get("cve_references") or finding_data.get("cve_id")
+            if isinstance(cve_data, str):
+                # Single CVE or comma-separated string
+                cve_array = [cve.strip() for cve in cve_data.split(",") if cve.strip()] if cve_data else []
+            elif isinstance(cve_data, list):
+                # Already an array
+                cve_array = [cve.strip() for cve in cve_data if cve and cve.strip()]
+            else:
+                cve_array = []
+            
             finding = Finding(
                 openvas_scan_id=openvas_scan_id,
-                cve_id=finding_data.get("cve_id", ""),
+                cve_id=cve_array if cve_array else None,
                 title=finding_data.get("title", ""),
                 severity=finding_data.get("severity", ""),
                 cvss_score=finding_data.get("cvss_score", 0.0),

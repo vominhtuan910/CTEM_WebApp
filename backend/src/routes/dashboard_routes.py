@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, and_
+from sqlalchemy import func, desc, and_, text
 from src.database import get_db
 from src.models.vulnerability_models import Finding, OpenVasScan
 from src.models.asset_models import Asset
@@ -75,16 +75,19 @@ async def get_dashboard_data(db: Session = Depends(get_db)):
             db.query(NmapScan).filter(NmapScan.scan_date >= seven_days_ago).count()
         )
 
-        # Top vulnerabilities by CVE
-        top_cves = (
-            db.query(Finding.cve_id, func.count(Finding.id).label("count"))
-            .filter(Finding.cve_id.isnot(None))
-            .filter(Finding.cve_id != "")
-            .group_by(Finding.cve_id)
-            .order_by(desc("count"))
-            .limit(10)
-            .all()
-        )
+        # Top vulnerabilities by CVE (unnest JSON arrays)
+        top_cves = db.execute(
+            text("""
+            SELECT cve_value, COUNT(*) as count
+            FROM findings f,
+                 json_array_elements_text(f.cve_id) as cve_value
+            WHERE f.cve_id IS NOT NULL
+            AND json_array_length(f.cve_id) > 0
+            GROUP BY cve_value
+            ORDER BY count DESC
+            LIMIT 10
+        """)
+        ).fetchall()
 
         # Assets with most vulnerabilities
         assets_with_vulns = (
