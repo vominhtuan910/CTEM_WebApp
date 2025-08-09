@@ -78,11 +78,24 @@ class AssetService:
             NmapScan object
         """
         try:
+            # Handle OS data - it can be a string or dict
+            os_info = scan_data.get("os", "Unknown")
+            if isinstance(os_info, dict):
+                os_name = os_info.get("name", "Unknown")
+            else:
+                os_name = str(os_info) if os_info else "Unknown"
+
             nmap_scan = NmapScan(
                 asset_id=asset_id,
                 scan_date=datetime.utcnow(),
                 ports=scan_data.get("ports", []),
-                os=scan_data.get("os", {}).get("name"),
+                os=os_name,
+                status="completed",
+                command_used="-sV -T4 -O -F --version-light",
+            )
+
+            print(
+                f"Saving Nmap scan for asset {asset_id}: {len(scan_data.get('ports', []))} ports found"
             )
 
             db.add(nmap_scan)
@@ -92,6 +105,7 @@ class AssetService:
 
         except Exception as e:
             db.rollback()
+            print(f"Database error saving Nmap scan: {str(e)}")
             raise Exception(f"Failed to save Nmap scan: {str(e)}")
 
     async def save_openvas_scan(
@@ -337,12 +351,43 @@ class AssetService:
             if not asset:
                 return False
 
+            print(f"Deleting asset {asset_id} and all related data...")
+
+            # Delete related data first to avoid foreign key constraint violations
+
+            # 1. Delete findings for this asset's OpenVAS scans
+            findings_deleted = 0
+            for openvas_scan in asset.openvas_scans:
+                findings_count = (
+                    db.query(Finding)
+                    .filter(Finding.openvas_scan_id == openvas_scan.id)
+                    .delete()
+                )
+                findings_deleted += findings_count
+
+            # 2. Delete OpenVAS scans for this asset
+            openvas_deleted = (
+                db.query(OpenVasScan).filter(OpenVasScan.asset_id == asset_id).delete()
+            )
+
+            # 3. Delete Nmap scans for this asset
+            nmap_deleted = (
+                db.query(NmapScan).filter(NmapScan.asset_id == asset_id).delete()
+            )
+
+            # 4. Finally delete the asset
             db.delete(asset)
+
             db.commit()
+
+            print(
+                f"Deleted asset {asset_id}: {nmap_deleted} Nmap scans, {openvas_deleted} OpenVAS scans, {findings_deleted} findings"
+            )
             return True
 
         except Exception as e:
             db.rollback()
+            print(f"Error deleting asset {asset_id}: {str(e)}")
             raise Exception(f"Failed to delete asset: {str(e)}")
 
     async def clear_all_assets(self, db: Session) -> Dict:
@@ -358,18 +403,43 @@ class AssetService:
                     "deleted_count": 0,
                 }
 
-            # Delete all assets (cascade will handle related data)
+            print(f"Clearing all assets and related data ({asset_count} assets)...")
+
+            # Delete related data first to avoid foreign key constraint violations
+
+            # 1. Delete all findings first (they reference openvas_scans)
+            findings_count = db.query(Finding).delete()
+            print(f"Deleted {findings_count} findings")
+
+            # 2. Delete all OpenVAS scans (they reference assets)
+            openvas_count = db.query(OpenVasScan).delete()
+            print(f"Deleted {openvas_count} OpenVAS scans")
+
+            # 3. Delete all Nmap scans (they reference assets)
+            nmap_count = db.query(NmapScan).delete()
+            print(f"Deleted {nmap_count} Nmap scans")
+
+            # 4. Finally delete all assets
             deleted_count = db.query(Asset).delete()
+            print(f"Deleted {deleted_count} assets")
+
             db.commit()
 
             return {
                 "success": True,
                 "message": f"Successfully deleted {deleted_count} assets and all related data",
                 "deleted_count": deleted_count,
+                "details": {
+                    "assets": deleted_count,
+                    "nmap_scans": nmap_count,
+                    "openvas_scans": openvas_count,
+                    "findings": findings_count,
+                },
             }
 
         except Exception as e:
             db.rollback()
+            print(f"Error during clear all assets: {str(e)}")
             raise Exception(f"Failed to clear all assets: {str(e)}")
 
     async def update_finding_status(

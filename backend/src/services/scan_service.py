@@ -144,8 +144,22 @@ class ScanService:
         try:
             print(f"Starting network discovery for: {network}")
 
+            # Check database availability first
+            from src.database import DATABASE_AVAILABLE, test_database_connection
+
+            db_status = test_database_connection()
+            print(f"Database status: {db_status}")
+
+            if not DATABASE_AVAILABLE:
+                print(
+                    "⚠️ WARNING: Database is not available! Scan results will not be saved."
+                )
+
             # Perform Nmap scan
             scan_result = await nmap_service.scan_network(network, save_xml=True)
+            print(
+                f"Nmap scan completed. Found {len(scan_result.get('hosts', []))} hosts"
+            )
 
             if not scan_result.get("hosts"):
                 return {
@@ -160,16 +174,41 @@ class ScanService:
             saved_assets = []
             db = next(get_db())
 
+            print(f"Database session obtained: {db is not None}")
+            if db is None:
+                print(
+                    "❌ CRITICAL: Database session is None - cannot save scan results!"
+                )
+                return {
+                    "success": False,
+                    "error": "Database not available - scan results not saved",
+                    "network": network,
+                    "hosts": scan_result.get("hosts", []),
+                }
+
             try:
-                for host_info in scan_result["hosts"]:
+                for i, host_info in enumerate(scan_result["hosts"]):
+                    print(
+                        f"\n--- Processing host {i + 1}/{len(scan_result['hosts'])}: {host_info.get('ip', 'unknown')} ---"
+                    )
+                    print(f"Host data: {host_info}")
+
                     try:
                         # Create or update asset
+                        print("Creating/updating asset...")
                         asset = await asset_service.create_asset_from_scan(
                             host_info, db
                         )
+                        print(f"✅ Asset created/updated: {asset.ip} (ID: {asset.id})")
 
                         # Save Nmap scan data
-                        await asset_service.save_nmap_scan(asset.id, host_info, db)
+                        print("Saving Nmap scan data...")
+                        nmap_scan = await asset_service.save_nmap_scan(
+                            asset.id, host_info, db
+                        )
+                        print(
+                            f"✅ Nmap scan data saved for asset {asset.ip} (scan ID: {nmap_scan.id})"
+                        )
 
                         saved_assets.append(
                             {
@@ -185,12 +224,17 @@ class ScanService:
 
                     except Exception as e:
                         print(
-                            f"Error saving asset {host_info.get('ip', 'unknown')}: {str(e)}"
+                            f"❌ Error saving asset {host_info.get('ip', 'unknown')}: {str(e)}"
                         )
+                        import traceback
+
+                        traceback.print_exc()
                         continue
 
             finally:
-                db.close()
+                if db:
+                    db.close()
+                    print("Database session closed")
 
             return {
                 "success": True,

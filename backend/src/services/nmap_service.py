@@ -43,14 +43,18 @@ class NmapService:
             # -F: Fast scan (top 100 ports)
             # --version-light: Light version detection
             # Note: XML output is handled separately using get_nmap_last_output()
-            scan_result = self.nm.scan(hosts=network, arguments=arguments)
+            self.nm.scan(hosts=network, arguments=arguments)
 
             hosts = []
 
             for host in self.nm.all_hosts():
+                print(f"Processing host: {host}")
                 host_info = self._extract_host_info(host)
                 if host_info:
+                    print(f"Host info extracted: {host_info}")
                     hosts.append(host_info)
+                else:
+                    print(f"No host info extracted for {host}")
 
             # Save XML output if requested
             if save_xml and xml_path:
@@ -102,11 +106,21 @@ class NmapService:
             if mac_address:
                 manufacturer = host_data.get("vendor", {}).get(mac_address, "")
 
+            # Extract port information
+            ports = self._extract_port_info(host_data)
+
+            # Get hostname if available
+            hostname = None
+            if "hostnames" in host_data and host_data["hostnames"]:
+                hostname = host_data["hostnames"][0].get("name", "")
+
             return {
                 "ip": host,
+                "hostname": hostname,
                 "os": os_info,
                 "mac_address": mac_address,
                 "manufacturer": manufacturer,
+                "ports": ports,
             }
 
         except Exception as e:
@@ -146,6 +160,39 @@ class NmapService:
             print(f"Error extracting OS info: {str(e)}")
 
         return "Unknown"
+
+    def _extract_port_info(self, host_data) -> list:
+        """Extract port information from host data"""
+        ports = []
+        try:
+            if "tcp" in host_data:
+                for port, port_data in host_data["tcp"].items():
+                    port_info = {
+                        "port": port,
+                        "protocol": "tcp",
+                        "state": port_data.get("state", "unknown"),
+                        "service": port_data.get("name", "unknown"),
+                        "version": port_data.get("version", ""),
+                        "product": port_data.get("product", ""),
+                    }
+                    ports.append(port_info)
+
+            if "udp" in host_data:
+                for port, port_data in host_data["udp"].items():
+                    port_info = {
+                        "port": port,
+                        "protocol": "udp",
+                        "state": port_data.get("state", "unknown"),
+                        "service": port_data.get("name", "unknown"),
+                        "version": port_data.get("version", ""),
+                        "product": port_data.get("product", ""),
+                    }
+                    ports.append(port_info)
+
+        except Exception as e:
+            print(f"Error extracting port info: {str(e)}")
+
+        return ports
 
 
 # Global instance
