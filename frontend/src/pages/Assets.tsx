@@ -13,7 +13,6 @@ import {
   Tooltip,
 } from "@mui/material";
 import {
-  Add as AddIcon,
   ViewList as ViewListIcon,
   ViewModule as ViewModuleIcon,
   DeleteSweep as DeleteSweepIcon,
@@ -33,23 +32,19 @@ const Assets = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [dialogState, setDialogState] = useState<{
-    add: boolean;
     delete: boolean;
     scan: boolean;
     clearAll: boolean;
   }>({
-    add: false,
     delete: false,
     scan: false,
     clearAll: false,
   });
-  const [importFile, setImportFile] = useState<File | null>(null);
 
   // Use our custom hooks
   const {
     assets,
     isLoading,
-    addAsset,
     deleteAsset,
     clearAllAssets,
     isSubmitting,
@@ -109,30 +104,14 @@ const Assets = () => {
     }
   };
 
-  // Handle add asset
-  const handleAddAsset = async (assetData: Partial<Asset>) => {
-    const success = await addAsset(assetData);
-    if (success) {
-      setDialogState({ ...dialogState, add: false });
-      setImportFile(null);
-    }
-  };
-
-  // Handle import file
-  const handleImportFile = (file: File) => {
-    setImportFile(file);
-  };
-
   // Close all dialogs
   const closeDialog = () => {
     setDialogState({
-      add: false,
       delete: false,
       scan: false,
       clearAll: false,
     });
     setSelectedAsset(null);
-    setImportFile(null);
   };
 
   // Render asset stats
@@ -213,14 +192,6 @@ const Assets = () => {
         </Typography>
         <Box>
           <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setDialogState({ ...dialogState, add: true })}
-            sx={{ mr: 1 }}
-          >
-            Import Asset
-          </Button>
-          <Button
             variant="outlined"
             color="secondary"
             onClick={() => setDialogState({ ...dialogState, scan: true })}
@@ -297,18 +268,10 @@ const Assets = () => {
             component="p"
             gutterBottom
           >
-            Import assets from a file or scan your network to discover assets
+            Scan your network to discover assets
           </Typography>
           <Button
             variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setDialogState({ ...dialogState, add: true })}
-            sx={{ mr: 2 }}
-          >
-            Import Asset
-          </Button>
-          <Button
-            variant="outlined"
             onClick={() => setDialogState({ ...dialogState, scan: true })}
           >
             Network Scan
