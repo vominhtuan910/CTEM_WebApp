@@ -1,30 +1,30 @@
-import React, { useState } from "react";
-import { Container } from "@mui/material";
-import { useVulnerabilityData } from "../hooks/vulnerability/useVulnerabilityData";
-
-// Import new components
-import SummaryCards from "../components/Issues/Summary/SummaryCards";
-import TabsSection from "../components/Issues/Tabs/TabsSection";
+import React from "react";
+import { Container, Typography, Box } from "@mui/material";
+import VulnerabilitySection from "../components/Issues/Tabs/TabsSection";
 
 const Issues: React.FC = () => {
-  const [lastScanDate, setLastScanDate] = useState<string | null>(null);
-
-  // Use the hook to get vulnerability data
-  const { summary } = useVulnerabilityData();
-
-  const handleScanComplete = (success: boolean, data?: any) => {
-    if (success && data) {
-      setLastScanDate(new Date().toLocaleString());
-    }
-  };
-
   return (
     <Container maxWidth="xl" sx={{ pt: 3, mt: 2, pb: 6 }}>
-      {/* Analytics Section */}
-      <SummaryCards summary={summary} />
+      {/* Page Header */}
+      <Box sx={{ mb: 4 }}>
+        <Typography
+          variant="h4"
+          component="h1"
+          fontWeight="bold"
+          sx={{
+            color: "text.primary",
+            mb: 1,
+          }}
+        >
+          Vulnerability Assessment
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Monitor and manage security vulnerabilities across your infrastructure
+        </Typography>
+      </Box>
 
-      {/* Tabs Section */}
-      <TabsSection onScanComplete={handleScanComplete} />
+      {/* Vulnerability Section */}
+      <VulnerabilitySection />
     </Container>
   );
 };
