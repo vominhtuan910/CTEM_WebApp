@@ -62,30 +62,30 @@ const EnhancedHealthScoreCard: React.FC<HealthScoreCardProps> = ({
 
       {/* Main Content */}
       <div
-        className={`px-6 py-8 bg-gradient-to-br ${getScoreBackground(
+        className={`px-6 py-6 bg-gradient-to-br ${getScoreBackground(
           healthScore.score
         )}`}
       >
         <div className="text-center">
           {/* Score Display */}
-          <div className="mb-6">
+          <div className="mb-4">
             <div
-              className={`text-6xl font-bold ${getScoreColor(
+              className={`text-5xl font-bold ${getScoreColor(
                 healthScore.score
               )} mb-2`}
             >
               {healthScore.score}
             </div>
-            <div className="text-lg font-medium text-gray-700">
+            <div className="text-base font-medium text-gray-700">
               {healthScore.classification}
             </div>
           </div>
 
           {/* Progress Bar */}
-          <div className="mb-6">
-            <div className="w-full bg-gray-200 rounded-full h-3">
+          <div className="mb-4">
+            <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className={`h-3 rounded-full transition-all duration-500 ${
+                className={`h-2 rounded-full transition-all duration-500 ${
                   healthScore.score >= 90
                     ? "bg-emerald-500"
                     : healthScore.score >= 80
@@ -107,18 +107,18 @@ const EnhancedHealthScoreCard: React.FC<HealthScoreCardProps> = ({
           </div>
 
           {/* Additional Metrics */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="bg-white/60 rounded-lg p-3">
-              <div className="text-2xl font-bold text-gray-900">
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="bg-white/60 rounded-lg p-2">
+              <div className="text-xl font-bold text-gray-900">
                 {totalFindings}
               </div>
-              <div className="text-sm text-gray-600">Total Findings</div>
+              <div className="text-xs text-gray-600">Total Findings</div>
             </div>
-            <div className="bg-white/60 rounded-lg p-3">
-              <div className="text-2xl font-bold text-gray-900">
+            <div className="bg-white/60 rounded-lg p-2">
+              <div className="text-xl font-bold text-gray-900">
                 {healthScore.classification}
               </div>
-              <div className="text-sm text-gray-600">Risk Level</div>
+              <div className="text-xs text-gray-600">Risk Level</div>
             </div>
           </div>
 

@@ -78,14 +78,6 @@ export interface SeverityTimelineEntry {
   low: number;
 }
 
-export interface Alert {
-  type: "critical" | "warning" | "danger" | "info";
-  title: string;
-  message: string;
-  count: number;
-  action: string;
-}
-
 // Main dashboard data interface
 export interface DashboardData {
   total_assets: number;
@@ -105,11 +97,6 @@ export interface DashboardData {
 
 export interface DashboardMetrics {
   severity_timeline: SeverityTimelineEntry[];
-}
-
-export interface DashboardAlerts {
-  alerts: Alert[];
-  total_alerts: number;
 }
 
 // Component props interfaces
@@ -157,49 +144,4 @@ export interface AssetIntelligenceCardProps {
 
 export interface TrendsCardProps {
   trends: Trends;
-}
-
-export interface AlertsCardProps {
-  alerts: Alert[];
-}
-
-export interface MetricsChartProps {
-  title: string;
-  data: any[];
-  type?: "line" | "bar" | "pie" | "area";
-  height?: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  icon?: any;
-}
-
-// Legacy interfaces for backward compatibility
-export interface ErrorToWatch {
-  id: number;
-  name: string;
-  trend: "up" | "down";
-  change: number;
-  type: string;
-}
-
-export interface Threat {
-  id: number;
-  name: string;
-  type: string;
-  increase: number;
-}
-
-export interface ThreatsSummary {
-  week: {
-    total: number;
-    impactful: Threat[];
-  };
-  month: {
-    total: number;
-    impactful: Threat[];
-  };
-}
-
-export interface MetricItem {
-  name: string;
-  count: number;
 }

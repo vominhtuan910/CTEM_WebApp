@@ -79,6 +79,7 @@ async def get_dashboard_data(db: Session = Depends(get_db)):
         top_cves = (
             db.query(Finding.cve_id, func.count(Finding.id).label("count"))
             .filter(Finding.cve_id.isnot(None))
+            .filter(Finding.cve_id != "")
             .group_by(Finding.cve_id)
             .order_by(desc("count"))
             .limit(10)

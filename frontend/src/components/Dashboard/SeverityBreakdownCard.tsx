@@ -61,57 +61,56 @@ const SeverityBreakdownCard: React.FC<SeverityBreakdownCardProps> = ({
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-100">
+      <div className="px-4 py-3 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              Vulnerability Severity Breakdown
+            <h3 className="text-base font-semibold text-gray-900">
+              Severity Breakdown
             </h3>
-            <p className="text-sm text-gray-600">
-              Distribution of findings by severity level
+            <p className="text-xs text-gray-600">
+              Distribution by severity level
             </p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-xl font-bold text-gray-900">
               {totalFindings}
             </div>
-            <div className="text-sm text-gray-600">Total Findings</div>
+            <div className="text-xs text-gray-600">Total</div>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-6">
-        <div className="space-y-4">
+      <div className="p-4">
+        <div className="space-y-3">
           {severityData.map((severity) => (
             <div
               key={severity.level}
-              className={`rounded-lg border ${severity.borderColor} ${severity.bgColor} p-4`}
+              className={`rounded-lg border ${severity.borderColor} ${severity.bgColor} p-3`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-3">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center space-x-2">
                   <div className={severity.color}>{severity.icon}</div>
                   <div>
-                    <div className="font-semibold text-gray-900">
+                    <div className="font-semibold text-sm text-gray-900">
                       {severity.level}
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {severity.percentage.toFixed(1)}% of total
+                    <div className="text-xs text-gray-600">
+                      {severity.percentage.toFixed(1)}%
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className={`text-2xl font-bold ${severity.color}`}>
+                  <div className={`text-lg font-bold ${severity.color}`}>
                     {severity.count}
                   </div>
-                  <div className="text-sm text-gray-600">findings</div>
                 </div>
               </div>
 
               {/* Progress Bar */}
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-gray-200 rounded-full h-1">
                 <div
-                  className={`h-2 rounded-full transition-all duration-500 ${
+                  className={`h-1 rounded-full transition-all duration-500 ${
                     severity.level === "Critical"
                       ? "bg-red-500"
                       : severity.level === "High"

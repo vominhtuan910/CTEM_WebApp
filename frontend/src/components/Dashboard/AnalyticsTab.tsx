@@ -64,9 +64,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ data }) => {
                 {data.trends.findings_change}
               </div>
               <div className="text-sm text-gray-600">
-                {data.trends.findings_trend === "up"
-                  ? "Increase"
-                  : "Decrease"}{" "}
+                {data.trends.findings_trend === "up" ? "Increase" : "Decrease"}{" "}
                 from last period
               </div>
             </div>
@@ -93,9 +91,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ data }) => {
             <h3 className="text-lg font-semibold text-gray-900">
               Scan Performance
             </h3>
-            <p className="text-sm text-gray-600">
-              Overall scan statistics
-            </p>
+            <p className="text-sm text-gray-600">Overall scan statistics</p>
           </div>
           <div className="p-6">
             <div className="text-center mb-4">
@@ -107,24 +103,20 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ data }) => {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">
-                  OpenVAS Scans
+                  Vulnerability Scans
                 </span>
                 <span className="text-sm font-medium">
                   {data.scan_statistics.total_openvas_scans}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">
-                  Network Scans
-                </span>
+                <span className="text-sm text-gray-600">Network Scans</span>
                 <span className="text-sm font-medium">
                   {data.scan_statistics.total_nmap_scans}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">
-                  Failed Scans
-                </span>
+                <span className="text-sm text-gray-600">Failed Scans</span>
                 <span className="text-sm font-medium text-red-600">
                   {data.scan_statistics.failed_scans}
                 </span>
@@ -152,17 +144,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ data }) => {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">
-                  Not Validated
-                </span>
+                <span className="text-sm text-gray-600">Not Validated</span>
                 <span className="text-sm font-medium text-yellow-600">
                   {data.status_breakdown.not_validated}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">
-                  False Positive
-                </span>
+                <span className="text-sm text-gray-600">False Positive</span>
                 <span className="text-sm font-medium text-gray-600">
                   {data.status_breakdown.false_positive}
                 </span>
