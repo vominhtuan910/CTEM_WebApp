@@ -39,9 +39,9 @@ async def get_dashboard_data(db: Session = Depends(get_db)):
             db.query(Finding).filter(Finding.status == "FALSE_POSITIVE").count()
         )
 
-        # Exploitable findings (those with exploit commands)
+        # Exploitable findings (those validated as exploitable)
         exploitable_findings = (
-            db.query(Finding).filter(Finding.exploit_command.isnot(None)).count()
+            db.query(Finding).filter(Finding.status == "VALIDATED").count()
         )
 
         # Calculate health score
@@ -76,18 +76,27 @@ async def get_dashboard_data(db: Session = Depends(get_db)):
         )
 
         # Top vulnerabilities by CVE (unnest JSON arrays)
-        top_cves = db.execute(
-            text("""
-            SELECT cve_value, COUNT(*) as count
-            FROM findings f,
-                 json_array_elements_text(f.cve_id) as cve_value
-            WHERE f.cve_id IS NOT NULL
-            AND json_array_length(f.cve_id) > 0
-            GROUP BY cve_value
-            ORDER BY count DESC
-            LIMIT 10
-        """)
-        ).fetchall()
+        # Simplified approach to avoid PostgreSQL JSON type issues
+        try:
+            top_cves = db.execute(
+                text("""
+                SELECT cve_value, COUNT(*) as count
+                FROM (
+                    SELECT json_array_elements_text(f.cve_id) as cve_value
+                    FROM findings f
+                    WHERE f.cve_id IS NOT NULL
+                    AND json_typeof(f.cve_id) = 'array'
+                ) as cve_data
+                WHERE cve_value IS NOT NULL
+                AND cve_value != ''
+                GROUP BY cve_value
+                ORDER BY count DESC
+                LIMIT 10
+            """)
+            ).fetchall()
+        except Exception as e:
+            print(f"Warning: CVE query failed: {e}")
+            top_cves = []
 
         # Assets with most vulnerabilities
         assets_with_vulns = (
@@ -350,9 +359,7 @@ async def get_dashboard_alerts(db: Session = Depends(get_db)):
             )
 
         # Exploitable vulnerabilities
-        exploitable = (
-            db.query(Finding).filter(Finding.exploit_command.isnot(None)).count()
-        )
+        exploitable = db.query(Finding).filter(Finding.status == "VALIDATED").count()
 
         if exploitable > 0:
             alerts.append(

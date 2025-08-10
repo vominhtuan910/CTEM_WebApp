@@ -159,13 +159,17 @@ class AssetService:
             cve_data = finding_data.get("cve_references") or finding_data.get("cve_id")
             if isinstance(cve_data, str):
                 # Single CVE or comma-separated string
-                cve_array = [cve.strip() for cve in cve_data.split(",") if cve.strip()] if cve_data else []
+                cve_array = (
+                    [cve.strip() for cve in cve_data.split(",") if cve.strip()]
+                    if cve_data
+                    else []
+                )
             elif isinstance(cve_data, list):
                 # Already an array
                 cve_array = [cve.strip() for cve in cve_data if cve and cve.strip()]
             else:
                 cve_array = []
-            
+
             finding = Finding(
                 openvas_scan_id=openvas_scan_id,
                 cve_id=cve_array if cve_array else None,
@@ -173,7 +177,6 @@ class AssetService:
                 severity=finding_data.get("severity", ""),
                 cvss_score=finding_data.get("cvss_score", 0.0),
                 status=finding_data.get("status", "NOT_VALIDATED"),
-                exploit_command=finding_data.get("exploit_command"),
             )
 
             db.add(finding)
@@ -457,7 +460,6 @@ class AssetService:
         self,
         finding_id: int,
         status: str,
-        exploit_command: str = None,
         db: Session = None,
     ) -> bool:
         """Update finding validation status"""
@@ -467,8 +469,6 @@ class AssetService:
                 return False
 
             finding.status = status
-            if exploit_command:
-                finding.exploit_command = exploit_command
 
             db.commit()
             return True

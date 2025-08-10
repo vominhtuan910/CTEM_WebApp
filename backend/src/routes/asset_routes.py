@@ -83,7 +83,6 @@ async def get_asset_by_id(asset_id: str, db: Session = Depends(get_db)):
                         "severity": finding.severity,
                         "cvss_score": finding.cvss_score,
                         "status": finding.status,
-                        "exploit_command": finding.exploit_command,
                     }
                 )
 
