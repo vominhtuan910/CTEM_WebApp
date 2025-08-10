@@ -18,7 +18,6 @@ from src.routes import (
     report_routes,
     vulnerability_routes,
     dashboard_routes,
-    findings_routes,
 )
 
 # Import database
@@ -90,10 +89,9 @@ app.include_router(scan_routes.router, prefix="/api/scan", tags=["scan"])
 app.include_router(parser_routes.router, prefix="/api/parser", tags=["parser"])
 app.include_router(report_routes.router, prefix="/api/reports", tags=["reports"])
 app.include_router(
-    vulnerability_routes.router, prefix="/api/vulnerabilities", tags=["vulnerabilities"]
+    vulnerability_routes.router, prefix="/api/findings", tags=["findings"]
 )
 app.include_router(dashboard_routes.router, prefix="/api/dashboard", tags=["dashboard"])
-app.include_router(findings_routes.router, prefix="/api/findings", tags=["findings"])
 
 
 # Health check endpoint

@@ -52,8 +52,8 @@ export const assetApi = {
   },
 };
 
-// Vulnerability API endpoints
-export const vulnerabilityApi = {
+// Findings API endpoints
+export const findingsApi = {
   getAll: async (params?: {
     sort_by?: string;
     sort_order?: string;
@@ -72,7 +72,7 @@ export const vulnerabilityApi = {
     if (params?.limit) queryParams.append("limit", params.limit.toString());
     if (params?.offset) queryParams.append("offset", params.offset.toString());
 
-    const response = await api.get(`/vulnerabilities?${queryParams.toString()}`);
+    const response = await api.get(`/findings?${queryParams.toString()}`);
     return response.data;
   },
 
@@ -93,18 +93,18 @@ export const vulnerabilityApi = {
     if (params?.offset) queryParams.append("offset", params.offset.toString());
 
     const response = await api.get(
-      `/vulnerabilities/openvas-threats?${queryParams.toString()}`
+      `/findings/openvas-threats?${queryParams.toString()}`
     );
     return response.data;
   },
 
   getById: async (id: string) => {
-    const response = await api.get(`/vulnerabilities/${id}`);
+    const response = await api.get(`/findings/${id}`);
     return response.data;
   },
 
   updateStatus: async (id: string, status: string) => {
-    const response = await api.patch(`/vulnerabilities/${id}/status`, {
+    const response = await api.patch(`/findings/${id}/status`, {
       status,
     });
     return response.data;
@@ -112,24 +112,24 @@ export const vulnerabilityApi = {
 
   // SearchSploit validation endpoints
   validateFinding: async (findingId: number) => {
-    const response = await api.post("/vulnerabilities/validate", {
+    const response = await api.post("/findings/validate", {
       finding_id: findingId,
     });
     return response.data;
   },
 
   validateAllFindings: async () => {
-    const response = await api.post("/vulnerabilities/validate-all");
+    const response = await api.post("/findings/validate-all");
     return response.data;
   },
 
   getSummary: async () => {
-    const response = await api.get("/vulnerabilities/summary");
+    const response = await api.get("/findings/summary");
     return response.data;
   },
 
   getTrends: async (days: number = 7) => {
-    const response = await api.get(`/vulnerabilities/trends?days=${days}`);
+    const response = await api.get(`/findings/trends?days=${days}`);
     return response.data;
   },
 };
