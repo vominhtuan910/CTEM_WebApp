@@ -129,6 +129,24 @@ export const findingsApi = {
     return response.data;
   },
 
+  // AI-powered threat solutions using Groq
+  getThreatAISolutions: async (findingId: number) => {
+    const response = await api.get(`/findings/ai-solutions/${findingId}`);
+    return response.data;
+  },
+
+  getBatchThreatAISolutions: async (findingIds: number[]) => {
+    const response = await api.post("/findings/ai-solutions/batch", {
+      finding_ids: findingIds,
+    });
+    return response.data;
+  },
+
+  getGroqStatus: async () => {
+    const response = await api.get("/findings/ai-solutions/status");
+    return response.data;
+  },
+
   getSummary: async () => {
     const response = await api.get("/findings/summary");
     return response.data;
