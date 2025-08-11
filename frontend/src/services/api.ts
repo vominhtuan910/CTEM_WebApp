@@ -123,6 +123,12 @@ export const findingsApi = {
     return response.data;
   },
 
+  // TEMPORARY: Clear validation data for testing
+  clearValidationData: async () => {
+    const response = await api.post("/findings/clear-validation-data");
+    return response.data;
+  },
+
   getSummary: async () => {
     const response = await api.get("/findings/summary");
     return response.data;
