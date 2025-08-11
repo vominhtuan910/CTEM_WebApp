@@ -120,7 +120,7 @@ async def create_asset(asset_data: AssetCreateRequest, db: Session = Depends(get
     """Create a new asset"""
     try:
         # Create asset using the service
-        new_asset = await asset_service.create_asset(asset_data.dict(), db)
+        new_asset = await asset_service.create_asset(asset_data.model_dump(), db)
 
         return {
             "success": True,
@@ -172,7 +172,7 @@ async def update_asset(
     try:
         # Update asset using the service
         updated_asset = await asset_service.update_asset(
-            int(asset_id), asset_data.dict(exclude_unset=True), db
+            int(asset_id), asset_data.model_dump(exclude_unset=True), db
         )
 
         if not updated_asset:

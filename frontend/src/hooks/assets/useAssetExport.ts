@@ -67,7 +67,6 @@ export const useAssetExport = () => {
       // Create export data
       const exportData: any = {
         id: asset.id,
-        hostname: asset.hostname,
         ipAddress: asset.ipAddress,
         status: asset.status,
         os: asset.os,
@@ -92,7 +91,7 @@ export const useAssetExport = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `asset_${asset.hostname}_${new Date()
+      link.download = `asset_${asset.ipAddress}_${new Date()
         .toISOString()
         .slice(0, 10)}.json`;
 

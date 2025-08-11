@@ -6,7 +6,7 @@ router = APIRouter()
 
 @router.get("/tools")
 async def get_scan_tools_status():
-    """Get the status of scanning tools (Nmap, OpenVAS, searchsploit)"""
+    """Get the status of scanning tools (Nmap, OpenVAS, Metasploit)"""
     try:
         status = await scan_service.get_scan_tools_status()
         return {"success": True, "data": status}
@@ -30,6 +30,16 @@ async def get_scan_status(task_ids: str):
     try:
         task_id_list = [tid.strip() for tid in task_ids.split(",")]
         result = await scan_service.check_scan_progress(task_id_list)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/parse-openvas-reports")
+async def parse_openvas_reports_endpoint():
+    """Manually trigger parsing of OpenVAS reports"""
+    try:
+        result = await scan_service.parse_openvas_reports()
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

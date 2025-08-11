@@ -84,11 +84,6 @@ const VulnerableAssetsCard: React.FC<VulnerableAssetsCardProps> = ({
                         <div className="font-medium text-gray-900">
                           {asset.ip}
                         </div>
-                        {asset.hostname !== "Unknown" && (
-                          <div className="text-sm text-gray-600">
-                            ({asset.hostname})
-                          </div>
-                        )}
                       </div>
                       <div className="flex items-center space-x-2 mt-1">
                         <div

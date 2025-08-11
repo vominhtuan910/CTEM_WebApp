@@ -19,12 +19,12 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
 }) => {
   if (!asset) return null;
 
-  // Create the dialog body with bold hostname
+  // Create the dialog body with bold IP address
   const bodyContent = (
     <>
       Are you sure you want to delete{" "}
       <Typography component="span" fontWeight="bold" color="error">
-        {asset.hostname}
+        {asset.ipAddress}
       </Typography>
       ?
     </>

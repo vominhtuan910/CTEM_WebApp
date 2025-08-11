@@ -68,8 +68,32 @@ const AssetCardGrid: React.FC<AssetCardGridProps> = ({ asset, onDelete }) => {
       const result = await scanApi.scanVulnerabilities(asset.id);
 
       if (result.success) {
-        // You could add a toast notification here
         console.log("Vulnerability scan started successfully:", result);
+        // If backend returns task IDs, poll until completion
+        const taskIds: string[] = (result.data?.scan_tasks || [])
+          .map((t: any) => t.task_id)
+          .filter(Boolean);
+
+        if (taskIds.length > 0) {
+          const pollIntervalMs = 5000;
+          const timeoutMs = 60 * 60 * 1000; // 1 hour safety timeout
+          const start = Date.now();
+
+          while (Date.now() - start < timeoutMs) {
+            try {
+              const prog = await scanApi.checkVulnerabilityProgress(taskIds);
+              const allCompleted = prog?.data?.all_completed;
+              const taskStatuses = prog?.data?.task_statuses || [];
+              console.log("OpenVAS progress:", taskStatuses);
+
+              if (allCompleted) break;
+            } catch (e) {
+              console.warn("Progress polling failed:", e);
+            }
+
+            await new Promise((res) => setTimeout(res, pollIntervalMs));
+          }
+        }
       } else {
         console.error("Failed to start vulnerability scan:", result);
       }
@@ -302,14 +326,11 @@ const AssetCardGrid: React.FC<AssetCardGridProps> = ({ asset, onDelete }) => {
           </Box>
         </Box>
 
-        {/* Hostname & IP */}
+        {/* IP Address */}
         <Box sx={{ textAlign: "center", mb: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-            {asset.hostname}
-          </Typography>
           <Typography
-            variant="body2"
-            sx={{ color: "text.secondary", fontFamily: "monospace" }}
+            variant="h6"
+            sx={{ fontWeight: 600, mb: 0.5, fontFamily: "monospace" }}
           >
             {asset.ipAddress}
           </Typography>

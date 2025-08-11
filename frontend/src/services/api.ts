@@ -276,6 +276,13 @@ export const scanApi = {
     ]);
     return response.data;
   },
+
+  // NEW: Poll OpenVAS task progress until completion
+  checkVulnerabilityProgress: async (taskIds: string[]) => {
+    const csv = taskIds.join(",");
+    const response = await api.get(`/assets/scan-progress/${csv}`);
+    return response.data;
+  },
 };
 
 // Parser API endpoints
@@ -296,10 +303,6 @@ export const parserApi = {
           success: true,
           parsedResults: {
             assetInfo: {
-              hostname:
-                firstHost.hostname ||
-                scanResults.network?.split("/")[0] ||
-                "localhost",
               ipAddress:
                 firstHost.ip ||
                 scanResults.network?.split("/")[0] ||

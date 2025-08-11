@@ -3,7 +3,6 @@ import { Asset } from "../types/asset.types";
 // Backend asset response structure
 interface BackendAsset {
   id: string;
-  hostname: string;
   name?: string;
   ip_address: string;
   ip_addresses: string[];
@@ -36,7 +35,6 @@ interface BackendAsset {
 export const transformBackendAsset = (backendAsset: BackendAsset): Asset => {
   return {
     id: String(backendAsset.id), // Convert to string for frontend compatibility
-    hostname: backendAsset.hostname,
     name: backendAsset.name,
     ipAddress: backendAsset.ip_address,
     ipAddresses: backendAsset.ip_addresses,

@@ -66,8 +66,31 @@ const AssetCardList: React.FC<AssetCardListProps> = ({ asset, onDelete }) => {
       const result = await scanApi.scanVulnerabilities(asset.id);
 
       if (result.success) {
-        // You could add a toast notification here
         console.log("Vulnerability scan started successfully:", result);
+        const taskIds: string[] = (result.data?.scan_tasks || [])
+          .map((t: any) => t.task_id)
+          .filter(Boolean);
+
+        if (taskIds.length > 0) {
+          const pollIntervalMs = 5000;
+          const timeoutMs = 60 * 60 * 1000; // 1 hour safety timeout
+          const start = Date.now();
+
+          while (Date.now() - start < timeoutMs) {
+            try {
+              const prog = await scanApi.checkVulnerabilityProgress(taskIds);
+              const allCompleted = prog?.data?.all_completed;
+              const taskStatuses = prog?.data?.task_statuses || [];
+              console.log("OpenVAS progress:", taskStatuses);
+
+              if (allCompleted) break;
+            } catch (e) {
+              console.warn("Progress polling failed:", e);
+            }
+
+            await new Promise((res) => setTimeout(res, pollIntervalMs));
+          }
+        }
       } else {
         console.error("Failed to start vulnerability scan:", result);
       }
@@ -264,21 +287,13 @@ const AssetCardList: React.FC<AssetCardListProps> = ({ asset, onDelete }) => {
             {getOsIcon()}
           </Box>
 
-          {/* Hostname and IP */}
+          {/* IP Address */}
           <Box sx={{ flexGrow: 1 }}>
             <Typography
               variant="subtitle1"
               sx={{
                 fontWeight: 600,
                 color: "text.primary",
-              }}
-            >
-              {asset.hostname}
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                color: "text.secondary",
                 fontFamily: "monospace",
               }}
             >

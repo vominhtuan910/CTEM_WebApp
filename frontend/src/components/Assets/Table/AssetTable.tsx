@@ -106,7 +106,7 @@ const AssetRow = ({ asset }: { asset: Asset }) => {
     return "text-red-600 bg-red-50";
   };
 
-  const displayName = asset.name || asset.hostname;
+  const displayName = asset.name || asset.ipAddress;
   const displayOS =
     asset.operatingSystem || (asset.os ? asset.os.name : "Unknown");
   const displayIPs = asset.ipAddresses || [asset.ipAddress];
@@ -529,7 +529,6 @@ const AssetTable: React.FC<AssetTableProps> = ({ assets, onExportCSV }) => {
     // Search filter
     const matchesSearch =
       !searchTerm ||
-      asset.hostname.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (asset.ipAddress &&
         asset.ipAddress.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (asset.name &&

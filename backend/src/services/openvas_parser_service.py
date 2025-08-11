@@ -78,7 +78,8 @@ class OpenVASParserService:
                 return None
 
             # Extract basic threat information
-            title = nvt_elem.findtext("name", "Unknown Threat")
+            # Ensure a non-empty string even if the element exists but has no direct text
+            title = nvt_elem.findtext("name") or "Unknown Threat"
 
             # Extract CVSS score and severity
             severity_elem = result_elem.find("severity")
@@ -103,9 +104,12 @@ class OpenVASParserService:
             port_elem = result_elem.find("port")
             port = port_elem.text if port_elem is not None else ""
 
-            # Extract description
+            # Extract description (handle nested tags where .text may be None)
             description_elem = result_elem.find("description")
-            description = description_elem.text if description_elem is not None else ""
+            if description_elem is not None:
+                description = "".join(description_elem.itertext()).strip()
+            else:
+                description = ""
 
             # Extract threat level
             threat_elem = result_elem.find("threat")

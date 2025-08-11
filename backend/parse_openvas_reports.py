@@ -11,7 +11,7 @@ import os
 import sys
 import asyncio
 from datetime import datetime, timezone
-from typing import List, Dict, Optional
+from typing import Dict, Optional
 
 # Add the src directory to the path so we can import modules
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
@@ -289,8 +289,9 @@ class OpenVASReportProcessor:
         return severity_map.get(severity, "Low")
 
 
-async def main():
-    """Main function"""
+# Function to run the processor (for standalone execution)
+async def run_processor():
+    """Run the OpenVAS report processor"""
     print("🔍 OpenVAS Report Parser")
     print("=" * 50)
 
@@ -305,6 +306,7 @@ async def main():
         return 1
 
 
+# Only run if script is executed directly
 if __name__ == "__main__":
-    exit_code = asyncio.run(main())
+    exit_code = asyncio.run(run_processor())
     sys.exit(exit_code)

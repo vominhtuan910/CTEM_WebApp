@@ -29,7 +29,6 @@ export interface OperatingSystem {
 
 export interface Asset {
   id: string;
-  hostname: string;
   name?: string; // Added for backward compatibility
   ipAddress: string;
   ipAddresses?: string[]; // Added for multiple IPs support
@@ -53,7 +52,6 @@ export interface Asset {
 }
 
 export interface AssetFormState {
-  hostname: string;
   ipAddress: string;
   status: AssetStatus;
   type: string;

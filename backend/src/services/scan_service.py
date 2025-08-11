@@ -6,6 +6,13 @@ from src.services.openvas_service import openvas_service
 from src.services.asset_service import asset_service
 from src.database import get_db
 import subprocess
+import sys
+from datetime import datetime
+
+# Add the backend directory to the path so we can import parse_openvas_reports
+backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 
 class ScanService:
@@ -236,6 +243,26 @@ class ScanService:
                     db.close()
                     print("Database session closed")
 
+            # Automatically parse OpenVAS reports after Nmap scan completes
+            print("\n🔍 Auto-triggering OpenVAS report parsing...")
+            try:
+                from parse_openvas_reports import OpenVASReportProcessor
+
+                processor = OpenVASReportProcessor()
+                parse_success = await processor.process_reports()
+
+                if parse_success:
+                    print("✅ OpenVAS reports parsed successfully after Nmap scan")
+                else:
+                    print("⚠️ OpenVAS report parsing completed with some issues")
+
+            except Exception as parse_error:
+                print(f"⚠️ Auto-parsing OpenVAS reports failed: {str(parse_error)}")
+                # Don't fail the entire Nmap scan if parsing fails
+                import traceback
+
+                traceback.print_exc()
+
             return {
                 "success": True,
                 "network": network,
@@ -244,6 +271,7 @@ class ScanService:
                 "saved_assets": len(saved_assets),
                 "hosts": saved_assets,
                 "xml_path": scan_result.get("xml_path"),
+                "openvas_parsing_triggered": True,
             }
 
         except Exception as e:
@@ -269,16 +297,23 @@ class ScanService:
                         continue
 
                     # Create OpenVAS scan task
+                    print(f"🎯 Creating scan task for asset: {asset.ip}")
                     task_result = await openvas_service.create_scan_task(
                         target_ip=asset.ip,
                         task_name=f"CTEM_Vuln_Scan_{asset.hostname or asset.ip}",
                     )
+                    print(f"📋 Task creation result: {task_result}")
 
                     if task_result.get("success"):
+                        print(f"✅ Task created successfully: {task_result['task_id']}")
                         # Start the scan
+                        print(
+                            f"🚀 Attempting to start scan for task: {task_result['task_id']}"
+                        )
                         start_result = await openvas_service.start_scan(
                             task_result["task_id"]
                         )
+                        print(f"📊 Start scan result: {start_result}")
 
                         if start_result.get("success"):
                             scan_tasks.append(
@@ -349,46 +384,76 @@ class ScanService:
 
     async def collect_scan_results(self, task_ids: List[str]) -> Dict:
         """
-        Collect results from completed OpenVAS scans
+        Collect and process results from completed OpenVAS scans
         Args:
-            task_ids: List of completed task IDs
+            task_ids: List of task IDs to collect results for
         Returns:
-            Dictionary with collected findings
+            Dictionary with collected results
         """
         try:
-            all_findings = []
-            db = next(get_db())
-
-            try:
-                for task_id in task_ids:
-                    # Get scan report
-                    report_result = await openvas_service.get_scan_report(
-                        task_id, save_xml=True
-                    )
-
-                    if report_result.get("success") and report_result.get("findings"):
-                        # Find the corresponding asset (this would need task->asset mapping)
-                        # For now, we'll create a placeholder approach
-                        findings = report_result["findings"]
-                        all_findings.extend(findings)
-
-                        # Save findings to database would go here
-                        # This requires mapping task_id back to asset_id
-
-            finally:
-                db.close()
+            results = []
+            for task_id in task_ids:
+                try:
+                    # Get task results
+                    task_results = await openvas_service.get_task_results(task_id)
+                    if task_results.get("success"):
+                        results.append(task_results)
+                    else:
+                        print(f"Failed to get results for task {task_id}")
+                except Exception as e:
+                    print(f"Error collecting results for task {task_id}: {str(e)}")
+                    continue
 
             return {
                 "success": True,
                 "total_tasks": len(task_ids),
-                "total_findings": len(all_findings),
-                "findings": all_findings,
+                "successful_collections": len(results),
+                "results": results,
             }
 
         except Exception as e:
             return {
                 "success": False,
                 "error": f"Failed to collect scan results: {str(e)}",
+            }
+
+    async def parse_openvas_reports(self) -> Dict:
+        """
+        Manually trigger parsing of OpenVAS reports
+        Returns:
+            Dictionary with parsing results
+        """
+        try:
+            print("🔍 Manually triggering OpenVAS report parsing...")
+
+            from parse_openvas_reports import OpenVASReportProcessor
+
+            processor = OpenVASReportProcessor()
+            parse_success = await processor.process_reports()
+
+            if parse_success:
+                return {
+                    "success": True,
+                    "message": "OpenVAS reports parsed successfully",
+                    "timestamp": datetime.now().isoformat(),
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "OpenVAS report parsing completed with some issues",
+                    "timestamp": datetime.now().isoformat(),
+                }
+
+        except Exception as parse_error:
+            print(f"❌ Manual OpenVAS report parsing failed: {str(parse_error)}")
+            import traceback
+
+            traceback.print_exc()
+
+            return {
+                "success": False,
+                "error": f"Manual parsing failed: {str(parse_error)}",
+                "timestamp": datetime.now().isoformat(),
             }
 
 

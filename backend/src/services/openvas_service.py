@@ -125,7 +125,7 @@ class OpenVASService:
             Dictionary with task information
         """
         if not GVM_AVAILABLE:
-            return self._mock_create_task(target_ip, task_name)
+            return {"success": False, "error": "OpenVAS (python-gvm) is not available."}
 
         async def _create_task_operation(gmp):
             # Generate task name if not provided
@@ -176,11 +176,17 @@ class OpenVASService:
     async def start_scan(self, task_id: str) -> Dict:
         """Start an OpenVAS scan task"""
         if not GVM_AVAILABLE:
-            return self._mock_start_scan(task_id)
+            return {"success": False, "error": "OpenVAS (python-gvm) is not available."}
 
         async def _start_scan_operation(gmp):
+            print(f"🚀 Starting scan for task ID: {task_id}")
             # Start the scan task
-            gmp.start_task(task_id)
+            try:
+                gmp.start_task(task_id)
+                print(f"✅ Scan started successfully for task ID: {task_id}")
+            except Exception as e:
+                print(f"❌ Failed to start scan for task ID {task_id}: {str(e)}")
+                raise
 
             return {
                 "success": True,
@@ -194,7 +200,7 @@ class OpenVASService:
     async def get_scan_status(self, task_id: str) -> Dict:
         """Get the status of an OpenVAS scan"""
         if not GVM_AVAILABLE:
-            return self._mock_get_status(task_id)
+            return {"success": False, "error": "OpenVAS (python-gvm) is not available."}
 
         async def _get_status_operation(gmp):
             # Get task status
@@ -219,7 +225,7 @@ class OpenVASService:
     async def get_scan_report(self, task_id: str, save_xml: bool = True) -> Dict:
         """Get the scan report when completed"""
         if not GVM_AVAILABLE:
-            return self._mock_get_report(task_id, save_xml)
+            return {"success": False, "error": "OpenVAS (python-gvm) is not available."}
 
         async def _get_report_operation(gmp):
             # Get task information
@@ -396,92 +402,7 @@ class OpenVASService:
             print(f"Error saving report XML: {str(e)}")
             return ""
 
-    # Mock methods for when OpenVAS is not available
-    def _mock_create_task(
-        self, target_ip: str, task_name: Optional[str] = None
-    ) -> Dict:
-        """Mock method for creating task when OpenVAS is not available"""
-        import uuid
-
-        task_id = str(uuid.uuid4())
-
-        return {
-            "success": True,
-            "task_id": task_id,
-            "target_id": str(uuid.uuid4()),
-            "task_name": task_name or f"Mock_Scan_{target_ip}",
-            "target_ip": target_ip,
-            "created_at": datetime.now().isoformat(),
-            "mock": True,
-        }
-
-    def _mock_start_scan(self, task_id: str) -> Dict:
-        """Mock method for starting scan"""
-        return {
-            "success": True,
-            "task_id": task_id,
-            "status": "started",
-            "started_at": datetime.now().isoformat(),
-            "mock": True,
-        }
-
-    def _mock_get_status(self, task_id: str) -> Dict:
-        """Mock method for getting scan status"""
-        # Simulate scan progress
-        import random
-
-        progress = random.randint(10, 100)
-        status = "Done" if progress == 100 else "Running"
-
-        return {
-            "success": True,
-            "task_id": task_id,
-            "status": status,
-            "progress": progress,
-            "checked_at": datetime.now().isoformat(),
-            "mock": True,
-        }
-
-    def _mock_get_report(self, task_id: str, save_xml: bool = True) -> Dict:
-        """Mock method for getting scan report"""
-        # Generate mock findings
-        mock_findings = [
-            {
-                "id": "mock-1",
-                "cve_id": "CVE-2023-12345",
-                "title": "Mock SQL Injection Vulnerability",
-                "severity": "High",
-                "cvss_score": 8.5,
-                "description": "Mock vulnerability for testing purposes",
-                "host_ip": "192.168.1.100",
-                "port": "80/tcp",
-                "status": "NOT_VALIDATED",
-                "discovered_at": datetime.now().isoformat(),
-            },
-            {
-                "id": "mock-2",
-                "cve_id": "CVE-2023-67890",
-                "title": "Mock Cross-Site Scripting",
-                "severity": "Medium",
-                "cvss_score": 6.2,
-                "description": "Mock XSS vulnerability for testing",
-                "host_ip": "192.168.1.100",
-                "port": "443/tcp",
-                "status": "NOT_VALIDATED",
-                "discovered_at": datetime.now().isoformat(),
-            },
-        ]
-
-        return {
-            "success": True,
-            "task_id": task_id,
-            "report_id": f"mock-report-{task_id}",
-            "status": "Done",
-            "findings_count": len(mock_findings),
-            "findings": mock_findings,
-            "generated_at": datetime.now().isoformat(),
-            "mock": True,
-        }
+    # Mock methods removed: returning explicit errors when OpenVAS is unavailable
 
 
 # Global instance

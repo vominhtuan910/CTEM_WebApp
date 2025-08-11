@@ -33,7 +33,6 @@ export interface TopCVE {
 
 export interface VulnerableAsset {
   ip: string;
-  hostname: string;
   vulnerability_count: number;
 }
 
